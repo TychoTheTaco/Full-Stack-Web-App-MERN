@@ -1,10 +1,9 @@
 import requests
 import re
 import logging
-from typing import Iterable, List, Dict, Union
+from typing import List, Dict
 from pathlib import Path
 import json
-from abc import ABC, abstractmethod
 
 from bs4 import BeautifulSoup
 
@@ -16,19 +15,31 @@ logging.getLogger().handlers[0].addFilter(lambda record: 'catalog_parser' in rec
 logger = logging.getLogger(__name__)
 
 
-class CatalogParser(ABC):
-
-    @abstractmethod
-    def get_courses(self) -> List[Dict[str, str]]:
-        raise NotImplementedError
-
-
-class UCIrvineCatalogParser(CatalogParser):
+class CatalogParser:
 
     def __init__(self):
         self._cache_dir = Path('..', 'cache', 'catalog')
 
     def get_courses(self) -> List[Dict[str, str]]:
+        """
+        Get a list of all courses.
+        :return: A list of dictionaries containing course information. Each dictionary has the following format:
+        {
+            'department_code': str. Department code. (Ex. "COMPSCI")
+            'number': str. Course number (Ex. "297P")
+            'title': str. Course title (Ex. "Capstone Design Project for Computer Science")
+            'units': Optional[str]. A string representing the number of units. This can be a single integer (Ex. "2") or floating point number (Ex. "7.5") OR a range of numbers
+                    (Ex. "4-12"). Note that the number of units is not always present.
+            'prerequisite':
+            'corequisite':
+            'restriction':
+            'equivalent':
+            'concurrent':
+            'repeatability':
+            'overlap':
+            'grading_option':
+        }
+        """
 
         # Check if the catalog exists in the cache
         catalog_cache_path = (self._cache_dir / 'department_catalogs').with_suffix('.json')
@@ -268,7 +279,7 @@ def parse_prerequisite(prerequisite_string: str, valid_courses) -> [Prerequisite
 
 if __name__ == '__main__':
 
-    parser = UCIrvineCatalogParser()
+    parser = CatalogParser()
     courses = parser.get_courses()
 
     for c in courses:
