@@ -1,17 +1,16 @@
 import requests
 import re
 import logging
-from typing import List, Dict
+from typing import List, Dict, Union
 from pathlib import Path
 import json
 
 from bs4 import BeautifulSoup
 
-from course import Prerequisite
-
 # Set up logging
 logging.basicConfig(format='[%(levelname)s] [%(name)s] %(message)s', level=logging.DEBUG)
-logging.getLogger().handlers[0].addFilter(lambda record: 'catalog_parser' in record.name or 'catalog_parser' in record.pathname)
+logging.getLogger().handlers[0].addFilter(
+    lambda record: 'catalog_parser' in record.name or 'catalog_parser' in record.pathname)
 logger = logging.getLogger(__name__)
 
 
@@ -28,6 +27,9 @@ class CatalogParser:
             'department_code': str. Department code. (Ex. "COMPSCI")
             'number': str. Course number (Ex. "297P")
             'title': str. Course title (Ex. "Capstone Design Project for Computer Science")
+
+            # The remaining items are not guaranteed to exist for every course!
+
             'units': Optional[str]. A string representing the number of units. This can be a single integer (Ex. "2") or floating point number (Ex. "7.5") OR a range of numbers
                     (Ex. "4-12"). Note that the number of units is not always present.
             'prerequisite':
@@ -99,22 +101,26 @@ class CatalogParser:
                 course['description'] = paragraphs[1].text
 
                 # Save remaining paragraphs (they will be parsed on the second pass)
-                course['paragraphs'] = paragraphs[2:]
+                course['_paragraphs'] = paragraphs[2:]
 
                 courses.append(course)
 
         # Second pass: Parse extra paragraphs (prerequisites, restrictions, etc.)
         valid_courses = [' '.join([c['department_code'], c['number']]) for c in courses]
         for course in courses:
-            for paragraph in course['paragraphs']:
+            for paragraph in course['_paragraphs']:
 
                 # Prerequisites
                 match = re.match(r'^Prerequisite:\s*(.+)$', paragraph.text)
                 if match:
+                    prerequisite_string = match.group(1)
                     try:
-                        course['prerequisite'] = parse_prerequisite(match.group(1), valid_courses)
+                        course['prerequisite'] = parse_prerequisite(prerequisite_string, valid_courses)
                     except Exception as e:
-                        # logger.error(f'Failed to parse prerequisites for {course["department_code"]} {course["number"]}!', exc_info=e)
+                        logger.error(
+                            f'Failed to parse prerequisites for {course["department_code"]} {course["number"]}! '
+                            f'Exception: "{e}" '
+                            f'Prerequisite string: "{prerequisite_string}"')
                         pass
                     continue
 
@@ -161,6 +167,7 @@ class CatalogParser:
                     continue
 
                 logger.warning(f'Unrecognized paragraph: {bytes(paragraph.text, encoding="utf-8")}')
+            del course['_paragraphs']
 
         return courses
 
@@ -198,7 +205,12 @@ class CatalogParser:
         return departments
 
 
-def tokenize_prerequisite_string(prerequisite_string: str, valid_courses: [str]):
+def tokenize_prerequisite_string(prerequisite_string: str):
+    """
+    Tokenize a prerequisite string.
+    :param prerequisite_string: A string representing prerequisites (Ex. "(I&C SCI 46 or CSE 46) and I&C SCI 6D and (MATH 3A or I&C SCI 6N).")
+    :return: A list of string tokens, ready to be parsed.
+    """
     # Add spaces around parenthesis so we can split the input on spaces
     prerequisite_string = prerequisite_string.replace('(', ' ( ')
     prerequisite_string = prerequisite_string.replace(')', ' ) ')
@@ -210,10 +222,6 @@ def tokenize_prerequisite_string(prerequisite_string: str, valid_courses: [str])
     def maybe_add_course():
         data = ' '.join(items).strip()
         if len(data) > 0:
-
-            if data not in valid_courses:
-                raise RuntimeError('Invalid course:', data)
-
             tokens.append(data)
             items.clear()
 
@@ -235,14 +243,17 @@ def tokenize_prerequisite_string(prerequisite_string: str, valid_courses: [str])
     return tokens
 
 
-def parse_prerequisite_courses(string: str, valid_courses):
+def parse_prerequisite_courses(string: str, valid_courses: [str]):
+    """
+    Parse a list of tokens to a tree of prerequisites.
+    :param string:
+    :param valid_courses:
+    :return:
+    """
 
-    #print('PRE:', string)
+    tokens = tokenize_prerequisite_string(string)
 
-    tokens = tokenize_prerequisite_string(string, valid_courses)
-    #print(tokens)
-
-    # A or (B and C) or (E and F)
+    valid_departments = [x.split()[-1] for x in valid_courses]
 
     stack = [[None, []]]
     for token in tokens:
@@ -261,18 +272,49 @@ def parse_prerequisite_courses(string: str, valid_courses):
             if stack[-1][0] != 'and':
                 raise RuntimeError('Parsing error: Ambiguous operator!')
         else:
+
+            # Verify token is a valid course by checking if its department code is valid. We could also check if the
+            # course number is valid, but some prerequisites listed in the catalog contain references to courses that
+            # do not exist. (COMPSCI 111 lists CSE 46 as a prerequisite but CSE 46 is not listed in the catalog. Better
+            # to keep some invalid courses than to fail parsing completely.
+            if token.split()[-1] not in valid_departments:
+                raise RuntimeError(f'Invalid course: {token}')
+
             stack[-1][1].append(token)
+
+    if stack[-1][0] is None:
+        stack[-1] = stack[-1][1][0]
 
     return stack[-1]
 
 
-def parse_prerequisite(prerequisite_string: str, valid_courses) -> [Prerequisite]:
+def parse_prerequisite(prerequisite_string: str, valid_courses: [str]) -> Union[str, List[List[str]]]:
+    """
+    Parse course prerequisites.
+    :param prerequisite_string:
+    :param valid_courses:
+    :return: A tree of prerequisites represented as collection of nested lists. If there is only a single prerequisite,
+    the returned value will be a string representing a course. If there are multiple prerequisites, the returned value
+    will be a list of lists, each containing either a string representing a course, or another list. Each nested list
+    has exactly 2 items. The first item is a string, either 'or' or 'and'. The second item is a list of courses.
+
+    Examples:
+
+    Prerequisite: "I&C SCI 45C"
+    Return value: "I&C SCI 45C"
+
+    Prerequisite: "(I&C SCI 46 or CSE 46) and I&C SCI 6D and (MATH 3A or I&C SCI 6N)"
+    Return value: ['and', [['or', ['I&C SCI 46', 'CSE 46']], 'I&C SCI 6D', ['or', ['MATH 3A', 'I&C SCI 6N']]]]
+
+    """
 
     # Split into statements
     statements = [x for x in prerequisite_string.split('.') if len(x) > 0]
 
     # Parse the first statement. This contains the prerequisite courses
     result = parse_prerequisite_courses(statements[0], valid_courses)
+
+    # TODO: Parse other statements (grade requirements, etc.)
 
     return result
 
@@ -284,5 +326,10 @@ if __name__ == '__main__':
 
     for c in courses:
         if c['department_code'] == 'COMPSCI':
+            print('COURSE:', c['department_code'], c['number'])
             if 'prerequisite' in c:
                 print(c['prerequisite'])
+
+    # Save to JSON
+    with open('catalog.json', 'w') as file:
+        json.dump(courses, file)
