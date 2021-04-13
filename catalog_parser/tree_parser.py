@@ -1,5 +1,3 @@
-
-
 class TreeParser:
 
     def __init__(self, group_open: str, group_close: str, item_separators: [str]):

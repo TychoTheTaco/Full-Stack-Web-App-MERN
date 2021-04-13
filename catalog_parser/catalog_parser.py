@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 class CatalogParser:
+    """
+    http://catalogue.uci.edu/about/about.pdf
+    """
 
     def __init__(self):
         self._cache_dir = Path('..', 'cache', 'catalog')
@@ -33,10 +36,13 @@ class CatalogParser:
 
             'units': Optional[str]. A string representing the number of units. This can be a single integer (Ex. "2") or floating point
             number (Ex. "7.5") OR a range of numbers (Ex. "4-12").
-            'prerequisite':
+            'workload_units': str. A string representing the number of units. This can be a single integer (Ex. "2") or floating point
+            number (Ex. "7.5") OR a range of numbers (Ex. "4-12").
+            'prerequisite_courses':
+            'prerequisite_notes':
             'corequisite':
             'restriction':
-            'equivalent':
+            'equivalent': A list of course IDs that are equivalent to this course. ("Same as ..." in the catalog)
             'concurrent':
             'repeatability':
             'overlap':
@@ -90,11 +96,7 @@ class CatalogParser:
 
                 # Parse units
                 if units_string is not None:
-                    match = re.match(r'^\.?(\d+(?:\.\d+)?(?:(?:\s*-\s*|\.)\d+)?) Units?\.  $', units_string)
-                    if match:
-                        course['units'] = match.group(1)
-                    else:
-                        logging.warning(f'Failed to parse units string: "{units_string}"')
+                    self._parse_units_string(course, units_string)
                 else:
                     logging.warning(f'No units found in title paragraph: "{title_paragraph_text}"')
 
@@ -117,15 +119,7 @@ class CatalogParser:
                 # Prerequisites
                 match = re.match(r'^Prerequisite:\s*(.+)$', paragraph)
                 if match:
-                    prerequisite_string = match.group(1)
-                    try:
-                        course['prerequisite'] = parse_prerequisite(prerequisite_string)
-                    except Exception as e:
-                        logger.warning(
-                            f'Failed to parse prerequisites for {course["department_code"]} {course["number"]}! '
-                            f'Exception: "{e}" '
-                            f'Prerequisite string: "{prerequisite_string}"')
-                        pass
+                    self._parse_prerequisite_string(course, match.group(1))
                     continue
 
                 # Corequisite
@@ -149,7 +143,7 @@ class CatalogParser:
                 # Same
                 match = re.match(r'^Same as (.+)\.$', paragraph)
                 if match:
-                    course['equivalent'] = match.group(1)  # TODO: Validate course codes
+                    self._parse_same_as_string(course, match.group(1))  # TODO: Validate course codes?
                     continue
 
                 # Concurrent
@@ -176,11 +170,13 @@ class CatalogParser:
                     course['grading_option'] = match.group(1)
                     continue
 
-                # GE Category
-                match = re.match(r'^\((.+)\)\.?$', paragraph)  # TODO: Parse?
-                if match:
-                    course['ge_category'] = match.group(1)
-                    continue
+                # TODO: Design units
+
+                # GE Category  # TODO: Make regex more specific
+                #match = re.match(r'^\((.+)\)\.?$', paragraph)  # TODO: Parse?
+                #if match:
+                #    course['ge_category'] = match.group(1)
+                #    continue
 
                 logger.warning(f'Unrecognized paragraph for course {course["department_code"]} {course["number"]}: "{paragraph}"')
             del course['_paragraphs']
@@ -220,12 +216,62 @@ class CatalogParser:
 
         return departments
 
+    @staticmethod
+    def _parse_units_string(course, string: str):
+        # Normal units
+        match = re.match(r'^((?:\d+\.\d+|\.\d+|\d+)(?:\s*-\s*(?:\d+\.\d+|\.\d+|\d+))?) Units?', string)
+        if match:
+            course['units'] = match.group(1)
+
+        # Workload units
+        match = re.match(r'^((?:\d+\.\d+|\.\d+|\d+)(?:\s*-\s*(?:\d+\.\d+|\.\d+|\d+))?) Workload Units?', string)
+        if match:
+            course['workload_units'] = match.group(1)
+
+        if 'units' not in course and 'workload_units' not in course:
+            logging.warning(f'Failed to parse units string for {course["department_code"]} {course["number"]}! Units string: "{string}"')
+
+    @staticmethod
+    def _parse_prerequisite_string(course, string: str):
+        string = string.strip()
+
+        # Parse some non-course prerequisites. (Not complete)
+        if any([
+            re.match(r'^Prerequisites vary\.$', string),
+            re.match(r'^Audition required\.$', string),
+            re.match(r'^Satisfactory completion of the lower-division writing requirement\.$', string, re.IGNORECASE),
+            re.match(r'^Satisfaction of the UC Entry Level Writing requirement\.$', string),
+            re.match(r'^Advancement to candidacy\.$', string),
+        ]):
+            course['prerequisite_notes'] = string
+            return
+
+        # Split into sentences
+        sentences = split_sentences(string)
+
+        # Parse the first sentences. This contains the prerequisite courses.
+        try:
+            course['prerequisite_courses'] = parse_prerequisite_courses(sentences[0])
+        except Exception as e:
+            logger.warning(
+                f'Failed to parse prerequisites for {course["department_code"]} {course["number"]}! '
+                f'Exception: "{e}" '
+                f'Prerequisite string: "{string}"')
+            course['prerequisite_notes'] = string
+
+        # TODO: Parse other sentences (grade requirements, etc.)
+
+    @staticmethod
+    def _parse_same_as_string(course, string: str) -> [str]:
+        course_ids = string.split(',')
+        course_ids = [x.strip() for x in course_ids]
+        course['equivalent'] = course_ids
+
 
 def parse_prerequisite_courses(string: str):
     """
     Parse a list of tokens to a tree of prerequisites.
     :param string:
-    :param valid_courses:
     :return:
     """
 
@@ -268,7 +314,7 @@ def parse_prerequisite_courses(string: str):
     return stack[-1]
 
 
-def parse_prerequisite(prerequisite_string: str) -> Union[str, List[List[str]]]:
+def parse_prerequisite_string(prerequisite_string: str) -> Union[str, List[List[str]]]:
     """
     Parse course prerequisites.
     :param prerequisite_string:
