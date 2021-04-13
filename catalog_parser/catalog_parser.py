@@ -7,6 +7,8 @@ import json
 
 from bs4 import BeautifulSoup
 
+from tree_parser import TreeParser
+
 # Set up logging
 logging.basicConfig(format='[%(levelname)s] [%(name)s] %(message)s', level=logging.DEBUG)
 logging.getLogger().handlers[0].addFilter(lambda record: 'catalog_parser' in record.name or 'catalog_parser' in record.pathname)
@@ -219,44 +221,6 @@ class CatalogParser:
         return departments
 
 
-def tokenize_prerequisite_string(prerequisite_string: str):
-    """
-    Tokenize a prerequisite string.
-    :param prerequisite_string: A string representing prerequisites (Ex. "(I&C SCI 46 or CSE 46) and I&C SCI 6D and (MATH 3A or I&C SCI 6N).")
-    :return: A list of string tokens, ready to be parsed.
-    """
-    # Add spaces around parenthesis so we can split the input on spaces
-    prerequisite_string = prerequisite_string.replace('(', ' ( ')
-    prerequisite_string = prerequisite_string.replace(')', ' ) ')
-
-    # Tokenize input
-    tokens = []
-    items = []
-
-    def maybe_add_course():
-        data = ' '.join(items).strip()
-        if len(data) > 0:
-            tokens.append(data)
-            items.clear()
-
-    for item in prerequisite_string.split():
-
-        # Ignore empty items
-        if len(item) == 0:
-            continue
-
-        if item == '(' or item == ')' or item == 'or' or item == 'and':
-            maybe_add_course()
-            tokens.append(item)
-            continue
-
-        items.append(item)
-
-    maybe_add_course()
-
-    return tokens
-
-
 def parse_prerequisite_courses(string: str):
     """
     Parse a list of tokens to a tree of prerequisites.
@@ -265,7 +229,8 @@ def parse_prerequisite_courses(string: str):
     :return:
     """
 
-    tokens = tokenize_prerequisite_string(string)
+    tree_parser = TreeParser('(', ')', ('and', 'or'))
+    tokens = tree_parser.tokenize(string)
 
     stack = [[None, []]]
     for token in tokens:
