@@ -9,8 +9,7 @@ from bs4 import BeautifulSoup
 
 # Set up logging
 logging.basicConfig(format='[%(levelname)s] [%(name)s] %(message)s', level=logging.DEBUG)
-logging.getLogger().handlers[0].addFilter(
-    lambda record: 'catalog_parser' in record.name or 'catalog_parser' in record.pathname)
+logging.getLogger().handlers[0].addFilter(lambda record: 'catalog_parser' in record.name or 'catalog_parser' in record.pathname)
 logger = logging.getLogger(__name__)
 
 
@@ -30,8 +29,8 @@ class CatalogParser:
 
             # The remaining items are not guaranteed to exist for every course!
 
-            'units': Optional[str]. A string representing the number of units. This can be a single integer (Ex. "2") or floating point number (Ex. "7.5") OR a range of numbers
-                    (Ex. "4-12"). Note that the number of units is not always present.
+            'units': Optional[str]. A string representing the number of units. This can be a single integer (Ex. "2") or floating point
+            number (Ex. "7.5") OR a range of numbers (Ex. "4-12").
             'prerequisite':
             'corequisite':
             'restriction':
@@ -101,23 +100,26 @@ class CatalogParser:
                 course['description'] = paragraphs[1].text
 
                 # Save remaining paragraphs (they will be parsed on the second pass)
-                course['_paragraphs'] = paragraphs[2:]
+                p = []
+                for paragraph in paragraphs[2:]:
+                    lines = paragraph.text.splitlines()
+                    p.extend(lines)
+                course['_paragraphs'] = p
 
                 courses.append(course)
 
         # Second pass: Parse extra paragraphs (prerequisites, restrictions, etc.)
-        valid_courses = [' '.join([c['department_code'], c['number']]) for c in courses]
         for course in courses:
             for paragraph in course['_paragraphs']:
 
                 # Prerequisites
-                match = re.match(r'^Prerequisite:\s*(.+)$', paragraph.text)
+                match = re.match(r'^Prerequisite:\s*(.+)$', paragraph)
                 if match:
                     prerequisite_string = match.group(1)
                     try:
-                        course['prerequisite'] = parse_prerequisite(prerequisite_string, valid_courses)
+                        course['prerequisite'] = parse_prerequisite(prerequisite_string)
                     except Exception as e:
-                        logger.error(
+                        logger.warning(
                             f'Failed to parse prerequisites for {course["department_code"]} {course["number"]}! '
                             f'Exception: "{e}" '
                             f'Prerequisite string: "{prerequisite_string}"')
@@ -125,48 +127,60 @@ class CatalogParser:
                     continue
 
                 # Corequisite
-                match = re.match(r'^Corequisite: (.+)$', paragraph.text)  # TODO: validate course codes and parse
+                match = re.match(r'^Corequisite: (.+)$', paragraph)  # TODO: validate course codes and parse
                 if match:
                     course['corequisite'] = match.group(1)
                     continue
 
+                # Prerequisite OR Corequisite
+                match = re.match(r'^Prerequisite or corequisite: (.+)$', paragraph)  # TODO: validate course codes and parse
+                if match:
+                    course['prerequisite_or_corequisite'] = match.group(1)
+                    continue
+
                 # Restrictions
-                match = re.match(r'^Restriction:\s*(.+)$', paragraph.text)
+                match = re.match(r'^Restriction:\s*(.+)$', paragraph)  # TODO: Parse?
                 if match:
                     course['restriction'] = match.group(1)
                     continue
 
                 # Same
-                match = re.match(r'^Same as (.+)\.$', paragraph.text)
+                match = re.match(r'^Same as (.+)\.$', paragraph)
                 if match:
                     course['equivalent'] = match.group(1)  # TODO: Validate course codes
                     continue
 
                 # Concurrent
-                match = re.match(r'^Concurrent with (.+)\.$', paragraph.text)
+                match = re.match(r'^Concurrent with (.+)\.$', paragraph)
                 if match:
                     course['concurrent'] = match.group(1)  # TODO: Validate course codes and parse multiple
                     continue
 
                 # Repeatability
-                match = re.match(r'^Repeatability:\s*(.+)$', paragraph.text)  # TODO: parse number?
+                match = re.match(r'^Repeatability:\s*(.+)$', paragraph)  # TODO: parse number?
                 if match:
                     course['repeatability'] = match.group(1)
                     continue
 
                 # Overlaps
-                match = re.match(r'^Overlaps with (.+)\.$', paragraph.text)  # TODO: validate course codes and parse
+                match = re.match(r'^Overlaps with (.+)\.$', paragraph)  # TODO: validate course codes and parse
                 if match:
                     course['overlap'] = match.group(1)
                     continue
 
                 # Grading Option
-                match = re.match(r'^Grading Option: (.+)$', paragraph.text)
+                match = re.match(r'^Grading Option: (.+)$', paragraph)  # TODO: Parse?
                 if match:
                     course['grading_option'] = match.group(1)
                     continue
 
-                logger.warning(f'Unrecognized paragraph: {bytes(paragraph.text, encoding="utf-8")}')
+                # GE Category
+                match = re.match(r'^\((.+)\)\.?$', paragraph)  # TODO: Parse?
+                if match:
+                    course['ge_category'] = match.group(1)
+                    continue
+
+                logger.warning(f'Unrecognized paragraph for course {course["department_code"]} {course["number"]}: "{paragraph}"')
             del course['_paragraphs']
 
         return courses
@@ -243,7 +257,7 @@ def tokenize_prerequisite_string(prerequisite_string: str):
     return tokens
 
 
-def parse_prerequisite_courses(string: str, valid_courses: [str]):
+def parse_prerequisite_courses(string: str):
     """
     Parse a list of tokens to a tree of prerequisites.
     :param string:
@@ -252,8 +266,6 @@ def parse_prerequisite_courses(string: str, valid_courses: [str]):
     """
 
     tokens = tokenize_prerequisite_string(string)
-
-    valid_departments = [x.split()[-1] for x in valid_courses]
 
     stack = [[None, []]]
     for token in tokens:
@@ -273,11 +285,14 @@ def parse_prerequisite_courses(string: str, valid_courses: [str]):
                 raise RuntimeError('Parsing error: Ambiguous operator!')
         else:
 
-            # Verify token is a valid course by checking if its department code is valid. We could also check if the
-            # course number is valid, but some prerequisites listed in the catalog contain references to courses that
-            # do not exist. (COMPSCI 111 lists CSE 46 as a prerequisite but CSE 46 is not listed in the catalog. Better
-            # to keep some invalid courses than to fail parsing completely.
-            if token.split()[-1] not in valid_departments:
+            # Verify that the token token is a valid course by checking if it's all uppercase. We could instead check if
+            # the course exists, but some courses listed as prerequisites do not appear in the catalog so parsing would
+            # fail for those courses. For example, COMPSCI 111 lists CSE 46 as a prerequisite but CSE 46 is not listed
+            # in the catalog. Better to keep some potentially invalid courses than to fail parsing completely. This also
+            # ensures that we don't accidentally parse prerequisite strings that don't contain a tree of courses, for
+            # example, "Satisfactory completion of the Lower-Division Writing requirement" is listed as the prerequisite
+            # for SOCIOL 155BW. This cannot be parsed as a tree of courses, so it should fail to parse here.
+            if not token.isupper():
                 raise RuntimeError(f'Invalid course: {token}')
 
             stack[-1][1].append(token)
@@ -288,11 +303,10 @@ def parse_prerequisite_courses(string: str, valid_courses: [str]):
     return stack[-1]
 
 
-def parse_prerequisite(prerequisite_string: str, valid_courses: [str]) -> Union[str, List[List[str]]]:
+def parse_prerequisite(prerequisite_string: str) -> Union[str, List[List[str]]]:
     """
     Parse course prerequisites.
     :param prerequisite_string:
-    :param valid_courses:
     :return: A tree of prerequisites represented as collection of nested lists. If there is only a single prerequisite,
     the returned value will be a string representing a course. If there are multiple prerequisites, the returned value
     will be a list of lists, each containing either a string representing a course, or another list. Each nested list
@@ -308,27 +322,48 @@ def parse_prerequisite(prerequisite_string: str, valid_courses: [str]) -> Union[
 
     """
 
-    # Split into statements
-    statements = [x for x in prerequisite_string.split('.') if len(x) > 0]
+    # Split into sentences
+    sentences = split_sentences(prerequisite_string)
 
-    # Parse the first statement. This contains the prerequisite courses
-    result = parse_prerequisite_courses(statements[0], valid_courses)
+    # Parse the first sentences. This contains the prerequisite courses.
+    result = parse_prerequisite_courses(sentences[0])
 
     # TODO: Parse other statements (grade requirements, etc.)
 
     return result
 
 
-if __name__ == '__main__':
+def split_sentences(string):
+    sentences = []
+    sentence = ''
+    found_space = False
 
+    for c in string:
+
+        # Ignore leading spaces
+        if len(sentence) == 0 and c == ' ':
+            continue
+
+        if c == '.':
+            if found_space:
+                sentences.append(sentence)
+                sentence = ''
+                found_space = False
+                continue
+        if c == ' ':
+            found_space = True
+
+        sentence += c
+
+    if len(sentence) > 0:
+        sentences.append(sentence)
+
+    return sentences
+
+
+if __name__ == '__main__':
     parser = CatalogParser()
     courses = parser.get_courses()
-
-    for c in courses:
-        if c['department_code'] == 'COMPSCI':
-            print('COURSE:', c['department_code'], c['number'])
-            if 'prerequisite' in c:
-                print(c['prerequisite'])
 
     # Save to JSON
     with open('catalog.json', 'w') as file:
