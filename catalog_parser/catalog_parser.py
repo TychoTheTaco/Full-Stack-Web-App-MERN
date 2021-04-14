@@ -170,13 +170,20 @@ class CatalogParser:
                     course['grading_option'] = match.group(1)
                     continue
 
-                # TODO: Design units
+                # Design units
+                match = re.match(r'^\(Design units: ((?:\d+\.\d+|\.\d+|\d+)(?:\s*-\s*(?:\d+\.\d+|\.\d+|\d+))?)\)', paragraph)
+                if match:
+                    course['design_units'] = match.group(1)
+                    continue
 
-                # GE Category  # TODO: Make regex more specific
-                #match = re.match(r'^\((.+)\)\.?$', paragraph)  # TODO: Parse?
-                #if match:
-                #    course['ge_category'] = match.group(1)
-                #    continue
+                # GE Category
+                match = re.match(r'^\((.+)\)\.?$', paragraph)
+                if match:
+                    try:
+                        self._parse_ge_category_string(course, match.group(1))
+                        continue
+                    except Exception as e:
+                        logger.warning(f'Failed to parse potential GE category for {course["department_code"]} {course["number"]}: {e}')
 
                 logger.warning(f'Unrecognized paragraph for course {course["department_code"]} {course["number"]}: "{paragraph}"')
             del course['_paragraphs']
@@ -266,6 +273,24 @@ class CatalogParser:
         course_ids = string.split(',')
         course_ids = [x.strip() for x in course_ids]
         course['equivalent'] = course_ids
+
+    @staticmethod
+    def _parse_ge_category_string(course, string: str):
+        string = string.strip()
+
+        tree_parser = TreeParser('(', ')', ('and', 'or'))
+        tokens = tree_parser.tokenize(string)
+
+        # (https://www.reg.uci.edu/help/WebSoc-Glossary.shtml)
+        GE_CATEGORIES = [
+            'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'Ia', 'Ib', 'Va', 'Vb'
+        ]
+
+        for token in tokens:
+            if token not in GE_CATEGORIES + ['(', ')', 'and', 'or', 'VA', 'V.A.', 'Va.', 'VB', 'V.B', 'IB']:
+                raise RuntimeError('Invalid GE')
+
+        course['ge_category'] = string  # TODO: Parse into tree?
 
 
 def parse_prerequisite_courses(string: str):
@@ -378,4 +403,4 @@ if __name__ == '__main__':
 
     # Save to JSON
     with open('catalog.json', 'w') as file:
-        json.dump(courses, file)
+        json.dump(courses, file, indent=4)

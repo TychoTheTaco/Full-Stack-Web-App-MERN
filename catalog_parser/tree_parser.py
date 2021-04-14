@@ -28,7 +28,7 @@ class TreeParser:
             if len(item) == 0:
                 continue
 
-            if item in [self._group_open, self._group_close] + list(self._item_separators):
+            if item.lower() in [x.lower() for x in [self._group_open, self._group_close] + list(self._item_separators)]:
                 maybe_add_item()
                 tokens.append(item)
             else:
