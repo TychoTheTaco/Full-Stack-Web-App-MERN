@@ -265,8 +265,12 @@ class CatalogParser:
                 f'Exception: "{e}" '
                 f'Prerequisite string: "{string}"')
             course['prerequisite_notes'] = string
+            return
 
         # TODO: Parse other sentences (grade requirements, etc.)
+        notes = ' '.join(sentences[1:])
+        if len(notes) > 0:
+            course['prerequisite_notes'] = notes
 
     @staticmethod
     def _parse_same_as_string(course, string: str) -> [str]:
