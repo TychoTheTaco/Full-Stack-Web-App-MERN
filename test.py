@@ -47,8 +47,8 @@ class TestScheduler(unittest.TestCase):
         #graph.add_edge('CSE 41', 'ICS 31', t=1)
         graph.add_edge('EECS 40', 'EECS 22L', t=0)
         graph.add_edge('EECS 22L', 'EECS 22', t=0)
-        graph.add_edge('EECS 22L', 'EECS 22', t=2)
-        graph.add_edge('EECS 22', 'EECS 22L', t=2)
+        #graph.add_edge('EECS 22L', 'EECS 22', t=2)
+        #graph.add_edge('EECS 22', 'EECS 22L', t=2)
         graph.add_edge('EECS 22', 'EECS 10', t=0)
         graph.add_edge('EECS 22', 'EECS 20', t=0)
         #graph.add_edge('EECS 10', 'EECS 20', t=1)
@@ -74,6 +74,7 @@ class TestScheduler(unittest.TestCase):
 
         constraints = {
             'COMPSCI 111': [('or', ['ICS 46', 'CSE 46']), ('or', ['MATH 3A', 'ICS 6N'])],
+            'COMPSCI 112': [('or', ['CSE 45C', 'ICS 45C']), ('or', ['MATH 3A', 'ICS 6N'])],
             'ICS 46': [('or', ['CSE 45C',  'ICS 45C'])],
             'ICS 45C': [('or', ['ICS 33', 'CSE 43', 'EECS 40'])],
             'ICS 33': [('or', ['ICS 32', 'CSE 42', 'ICS 32A'])],
@@ -82,7 +83,12 @@ class TestScheduler(unittest.TestCase):
             'MATH 3A': [('or', ['MATH 2B', 'MATH 5B'])]
         }
 
-        scheduler.schedule(graph, constraints)
+        preferences = {
+            'ICS 45C': ['EECS 40']
+        }
+
+        schedule = scheduler.schedule(graph, constraints, preferences)
+        print(schedule)
 
 
 if __name__ == '__main__':

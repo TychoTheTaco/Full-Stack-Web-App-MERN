@@ -3,7 +3,17 @@ from collections import defaultdict
 import networkx as nx
 
 
-def schedule(graph: nx.DiGraph, constraints: {}):
+def recursive_remove(graph, node):
+    pending = []
+    def f(graph, node):
+        pending.append(node)
+        for n in graph.out_edges(node):
+            f(graph, n[1])
+    f(graph, node)
+    graph.remove_nodes_from(pending)
+
+
+def schedule(graph: nx.DiGraph, constraints: {}, preferences: {}):
     other = nx.DiGraph(graph)
     selected_courses = []
 
@@ -30,9 +40,16 @@ def schedule(graph: nx.DiGraph, constraints: {}):
             or_satisfied = False
             for parent in parents:
                 if parent in constraints:
-                    for con in constraints[parent]:
+                    for i, con in enumerate(constraints[parent]):
                         if course in con[1]:
                             print('IN CON')
+
+                            if parent in preferences:
+                                pref = preferences[parent][i]
+                                if pref != course:
+                                    print('YIELD FOR PREFERENCE')
+                                    continue
+
                             for c in con[1]:
                                 if c in selected_courses:
                                     print('ALREADY SATISFIED')
@@ -43,10 +60,12 @@ def schedule(graph: nx.DiGraph, constraints: {}):
                     if or_satisfied:
                         break
             if or_satisfied:
-                graph.remove_node(course)
+                recursive_remove(graph, course)
                 continue
 
             # constraints not satisfied yet, select course
             print('SELECT', course)
             selected_courses.append(course)
             graph.remove_node(course)
+
+    return selected_courses
