@@ -13,7 +13,18 @@ def recursive_remove(graph, node):
     graph.remove_nodes_from(pending)
 
 
-def schedule(graph: nx.DiGraph, constraints: {}, preferences: {}):
+def create_schedule(graph: nx.DiGraph, constraints: {}, preferences: {}, max_courses_per_quarter: int = 4):
+    schedule = []
+    quarter_index = -1
+
+    def add(course):
+        nonlocal quarter_index
+        if len(schedule[quarter_index]) >= max_courses_per_quarter:
+            quarter_index += 1
+            schedule.append([])
+
+        schedule[quarter_index].append(course)
+
     other = nx.DiGraph(graph)
     selected_courses = []
 
@@ -32,6 +43,9 @@ def schedule(graph: nx.DiGraph, constraints: {}, preferences: {}):
         if len(available_courses) == 0:
             break
 
+        schedule.append([])
+        quarter_index += 1
+
         for course in available_courses:
             print('Consider:', course)
 
@@ -44,17 +58,18 @@ def schedule(graph: nx.DiGraph, constraints: {}, preferences: {}):
                         if course in con[1]:
                             print('IN CON')
 
+                            for c in con[1]:
+                                if c in selected_courses:
+                                    print('ALREADY SATISFIED')
+                                    or_satisfied = True
+                                    break
+
                             if parent in preferences:
                                 pref = preferences[parent][i]
                                 if pref != course:
                                     print('YIELD FOR PREFERENCE')
                                     continue
 
-                            for c in con[1]:
-                                if c in selected_courses:
-                                    print('ALREADY SATISFIED')
-                                    or_satisfied = True
-                                    break
                         if or_satisfied:
                             break
                     if or_satisfied:
@@ -67,5 +82,7 @@ def schedule(graph: nx.DiGraph, constraints: {}, preferences: {}):
             print('SELECT', course)
             selected_courses.append(course)
             graph.remove_node(course)
+            add(course)
 
-    return selected_courses
+    print(selected_courses)
+    return schedule
