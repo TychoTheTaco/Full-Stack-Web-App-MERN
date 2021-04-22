@@ -1,0 +1,25 @@
+{
+  "name": "nodepackage",
+  "version": "1.0.0",
+  "description": "For new and transfer students, discovering and scheduling courses can be a daunting task, especially when students aren’t familiar with the breadth of offerings and the corresponding prerequisites. If done incorrectly, poor planning can lead to students spending extra unnecessary quarters or missing elective classes they otherwise would’ve taken. \r We plan to create a course planner as a web application where users input a list of courses they want to attend along with courses they have already completed. The application allows users to view courses and their prerequisites in an interactive UI and suggests a course schedule designed to fit the shortest time frame.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node Server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karthiknayak59/297P---Full-stack-project---MERN.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/karthiknayak59/297P---Full-stack-project---MERN/issues"
+  },
+  "homepage": "https://github.com/karthiknayak59/297P---Full-stack-project---MERN#readme",
+  "dependencies": {
+    "express": "^4.17.1",
+    "mongodb": "^3.6.6"
+  }
+}
