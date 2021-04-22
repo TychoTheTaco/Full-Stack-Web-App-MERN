@@ -1,26 +1,25 @@
 import Express from "express";
 import { MongoDbClient } from './DBReader.js';
+const courseData = [
+    {
+        "CourseID" : "A",
+        "CourseName" : "courseA",
+        "Prerequisites" : ["B", "C"]
+    },
+    {
+        "CourseID" : "B",
+        "CourseName" : "courseB",
+        "Prerequisites" : []
+    },
+    {
+        "CourseID" : "C",
+        "CourseName" : "courseC",
+        "Prerequisites" : []
+    }
+];
 
 class Routes
 {
-    courseData = [
-        {
-            "CourseID" : "A",
-            "CourseName" : "courseA",
-            "Prerequisites" : ["B", "C"]
-        },
-        {
-            "CourseID" : "B",
-            "CourseName" : "courseB",
-            "Prerequisites" : []
-        },
-        {
-            "CourseID" : "C",
-            "CourseName" : "courseC",
-            "Prerequisites" : []
-        }
-    ];
-
     constructor()
     {
 
@@ -42,14 +41,18 @@ class Routes
 // let dbClient = new MongoDbClient();
 // await dbClient.connect();
 // await dbClient.listDatabases();
-// await dbClient.close();
+//await dbClient.insertDocument(courseData);
+//await dbClient.retrieveDocument();
+//await dbClient.close();
 
-const app = Express();
-const port = 3000;
-let routes = new Routes();
-app.get("/", routes.Root)
-app.get("/course/:CourseID", routes.getcourseid);
-app.listen(port, ()=> console.log("listening on port" + port ))
+
+/// Uncomment to publish server.
+// const app = Express();
+// const port = 3000;
+// let routes = new Routes();
+// app.get("/", routes.Root)
+// app.get("/course/:CourseID", routes.getcourseid);
+// app.listen(port, ()=> console.log("listening on port" + port ))
 
 
 //app.post()

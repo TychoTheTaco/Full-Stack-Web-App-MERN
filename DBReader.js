@@ -44,14 +44,32 @@ export class MongoDbClient {
         databasesList.databases.forEach(db => console.log(` - ${db.name}`));
     }
 
-    async insertDocument()
+    async insertDocument(docToInsert, dbName = "CoursePlannerDB", collection = "Courses")
     {
+        try{
+            var db = this.client.db(dbName);
+            db.collection(collection).insertMany(docToInsert);
+        }
+        catch(error)
+        {
+            console.log(error);
+        }
 
     }
 
-    async retrieveDocument()
+    retrieveDocument(dbName = "CoursePlannerDB", collection = "Courses")
     {
+        var db = this.client.db(dbName);
+        var cursor = db.collection(collection).find();
+        cursor.each(function(err, item) {
+            // If the item is null then the cursor is exhausted/empty and closed
+            if(item == null) {
+                return;
+            }
 
+            console.log(item["courseName"]);
+            // otherwise, do something with the item
+        });
     }
 }
 
