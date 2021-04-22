@@ -11,7 +11,9 @@ from tree_parser import TreeParser
 
 # Set up logging
 logging.basicConfig(format='[%(levelname)s] [%(name)s] %(message)s', level=logging.DEBUG)
-logging.getLogger().handlers[0].addFilter(lambda record: 'catalog_parser' in record.name or 'catalog_parser' in record.pathname)
+logging.getLogger().handlers[0].addFilter(
+    lambda record: 'catalog_parser' in record.name or 'catalog_parser' in record.pathname
+)
 logger = logging.getLogger(__name__)
 
 
@@ -29,6 +31,7 @@ class CatalogParser:
         :return: A list of dictionaries containing course information. Each dictionary has the following format:
         {
             'department_code': str. Department code. (Ex. "COMPSCI")
+            'department_name': str. Name of the department (Ex. "Computer Science")
             'number': str. Course number (Ex. "297P")
             'title': str. Course title (Ex. "Capstone Design Project for Computer Science")
 
@@ -69,6 +72,8 @@ class CatalogParser:
         # Gather catalog HTML pages
         html_catalogs = [d['catalog_html'] for d in departments]
 
+        department_map = {d['code']: d['name'] for d in departments}
+
         # First pass: Parse basic course information
         courses = []
         for catalog_html in html_catalogs:
@@ -96,6 +101,7 @@ class CatalogParser:
 
                 course = {
                     'department_code': department_code,
+                    'department_name': department_map[department_code],
                     'number': course_number,
                     'title': course_title
                 }
@@ -445,7 +451,7 @@ def parse_prerequisite_courses(string: str, valid_courses=None):
                 course_number = split[-1]
 
                 if department_code in department_remap:
-                    #logger.info(f'Automatically remapped department code "{department_code}" to "{department_remap[department_code]}"')
+                    # logger.info(f'Automatically remapped department code "{department_code}" to "{department_remap[department_code]}"')
                     department_code = department_remap[department_code]
 
                 if department_code not in valid_courses:
