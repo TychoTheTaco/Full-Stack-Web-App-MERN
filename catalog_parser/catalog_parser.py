@@ -34,19 +34,25 @@ class CatalogParser:
 
             # The remaining items are not guaranteed to exist for every course!
 
-            'units': Optional[str]. A string representing the number of units. This can be a single integer (Ex. "2") or floating point
+            'units': Optional[str].A string representing the number of units. This can be a single integer (Ex. "2") or floating point
             number (Ex. "7.5") OR a range of numbers (Ex. "4-12").
             'workload_units': str. A string representing the number of units. This can be a single integer (Ex. "2") or floating point
             number (Ex. "7.5") OR a range of numbers (Ex. "4-12").
-            'prerequisite_courses':
-            'prerequisite_notes':
-            'corequisite':
-            'restriction':
+            'prerequisite_courses': A string or a list. If its a string, its a course ID (department + course number). If its a list, the
+            first element is a string: either 'or' or 'and'. The second element is another list, which can hold either strings or more lists.
+            'prerequisite_notes': str. If a course has prerequisites that could not be parsed into a tree, the raw string will end up here.
+            'corequisite_courses': A string or a list. If its a string, its a course ID (department + course number). If its a list, the
+            first element is a string: either 'or' or 'and'. The second element is another list, which can hold either strings or more lists.
+            'corequisite_notes': str. If a course has corequisites that could not be parsed into a tree, the raw string will end up here.
+            'prerequisite_or_corequisite_courses': A string or a list. If its a string, its a course ID (department + course number). If its a list, the
+            first element is a string: either 'or' or 'and'. The second element is another list, which can hold either strings or more lists.
+            'prerequisite_or_corequisite_notes': str. If a course has "prerequisites or corequisites" that could not be parsed into a tree, the raw string will end up here.
+            'restriction': str.
             'equivalent': A list of course IDs that are equivalent to this course. ("Same as ..." in the catalog)
-            'concurrent':
-            'repeatability':
-            'overlap':
-            'grading_option':
+            'concurrent': str.
+            'repeatability': str.
+            'overlap': str.
+            'grading_option': str.
         }
         """
 
@@ -112,6 +118,8 @@ class CatalogParser:
 
                 courses.append(course)
 
+        valid_courses = {d['code']: [c['number'] for c in courses if c['department_code'] == d['code']] for d in departments}
+
         # Second pass: Parse extra paragraphs (prerequisites, restrictions, etc.)
         for course in courses:
             for paragraph in course['_paragraphs']:
@@ -119,19 +127,19 @@ class CatalogParser:
                 # Prerequisites
                 match = re.match(r'^Prerequisite:\s*(.+)$', paragraph)
                 if match:
-                    self._parse_prerequisite_string(course, match.group(1))
+                    self._parse_prerequisite_string(course, match.group(1), valid_courses=valid_courses)
                     continue
 
                 # Corequisite
-                match = re.match(r'^Corequisite: (.+)$', paragraph)  # TODO: validate course codes and parse
+                match = re.match(r'^Corequisite: (.+)$', paragraph)
                 if match:
-                    course['corequisite'] = match.group(1)
+                    self._parse_corequisite_string(course, match.group(1), valid_courses=valid_courses)
                     continue
 
                 # Prerequisite OR Corequisite
-                match = re.match(r'^Prerequisite or corequisite: (.+)$', paragraph)  # TODO: validate course codes and parse
+                match = re.match(r'^Prerequisite or corequisite: (.+)$', paragraph)
                 if match:
-                    course['prerequisite_or_corequisite'] = match.group(1)
+                    self._parse_prerequisite_or_corequisite_string(course, match.group(1), valid_courses=valid_courses)
                     continue
 
                 # Restrictions
@@ -188,6 +196,18 @@ class CatalogParser:
                 logger.warning(f'Unrecognized paragraph for course {course["department_code"]} {course["number"]}: "{paragraph}"')
             del course['_paragraphs']
 
+        # names = [course['department_code'] + ' ' + course['number'] for course in courses]
+        # print(names)
+        #
+        # # Extras
+        # for course in courses:
+        #     if course['number'].upper().endswith('L'):
+        #         non = course['department_code'] + ' ' + course['number'][:-1]
+        #         if non in names:
+        #             print('POTENTIAL LAB:', course['department_code'] + ' ' + course['number'])
+        #         else:
+        #             print('BAMBOOZLE:', course['department_code'] + ' ' + course['number'], 'NON:', non)
+
         return courses
 
     def _download_department_catalogs(self):
@@ -239,8 +259,13 @@ class CatalogParser:
             logging.warning(f'Failed to parse units string for {course["department_code"]} {course["number"]}! Units string: "{string}"')
 
     @staticmethod
-    def _parse_prerequisite_string(course, string: str):
+    def _parse_prerequisite_string(course, string: str, valid_courses=None):
         string = string.strip()
+
+        # Placement into ...
+        if re.match(r'^Placement into (.+)', string):  # TODO: Parse course
+            course['prerequisite_notes'] = string
+            return
 
         # Parse some non-course prerequisites. (Not complete)
         if any([
@@ -248,7 +273,7 @@ class CatalogParser:
             re.match(r'^Audition required\.$', string),
             re.match(r'^Satisfactory completion of the lower-division writing requirement\.$', string, re.IGNORECASE),
             re.match(r'^Satisfaction of the UC Entry Level Writing requirement\.$', string),
-            re.match(r'^Advancement to candidacy\.$', string),
+            re.match(r'^Advancement to candidacy\.$', string)
         ]):
             course['prerequisite_notes'] = string
             return
@@ -258,7 +283,7 @@ class CatalogParser:
 
         # Parse the first sentences. This contains the prerequisite courses.
         try:
-            course['prerequisite_courses'] = parse_prerequisite_courses(sentences[0])
+            course['prerequisite_courses'] = parse_prerequisite_courses(sentences[0], valid_courses=valid_courses)
         except Exception as e:
             logger.warning(
                 f'Failed to parse prerequisites for {course["department_code"]} {course["number"]}! '
@@ -296,13 +321,102 @@ class CatalogParser:
 
         course['ge_category'] = string  # TODO: Parse into tree?
 
+    @staticmethod
+    def _parse_corequisite_string(course, string: str, valid_courses=None) -> None:
 
-def parse_prerequisite_courses(string: str):
+        # Remove trailing period
+        if string.endswith('.'):
+            string = string[:-1]
+
+        # Ignore empty string
+        if len(string.strip()) == 0:
+            return
+
+        # Try to parse the course tree
+        try:
+            course['corequisite_courses'] = parse_prerequisite_courses(string, valid_courses=valid_courses)
+        except Exception as e:
+            logger.warning(
+                f'Failed to parse corequisite for {course["department_code"]} {course["number"]}! '
+                f'Exception: "{e}" '
+                f'Corequisite string: "{string}"')
+            course['corequisite_notes'] = string
+            return
+
+    @staticmethod
+    def _parse_prerequisite_or_corequisite_string(course, string: str, valid_courses=None) -> None:
+
+        # Remove trailing period
+        if string.endswith('.'):
+            string = string[:-1]
+
+        # Ignore empty string
+        if len(string.strip()) == 0:
+            return
+
+        # Split into sentences
+        sentences = split_sentences(string)
+
+        # Parse the first sentences. This contains the course tree.
+        try:
+            course['prerequisite_or_corequisite_courses'] = parse_prerequisite_courses(sentences[0], valid_courses=valid_courses)
+        except Exception as e:
+            logger.warning(
+                f'Failed to parse prerequisite or corequisite for {course["department_code"]} {course["number"]}! '
+                f'Exception: "{e}" '
+                f'String: "{string}"')
+            course['prerequisite_or_corequisite_notes'] = string
+            return
+
+        # TODO: Parse other sentences (grade requirements, etc.)
+        notes = ' '.join(sentences[1:])
+        if len(notes) > 0:
+            course['prerequisite_or_corequisite_notes'] = notes
+
+
+def parse_prerequisite_courses(string: str, valid_courses=None):
     """
     Parse a list of tokens to a tree of prerequisites.
     :param string:
     :return:
     """
+
+    # Rename some department codes (Ex. PHYS -> PHYSICS)
+    department_remap = {
+        'PHYS': 'PHYSICS',
+        'PSYC': 'PSYCH',
+        'PUBH': 'PUBHLTH',
+        'STAT': 'STATS',
+        'SE': 'SOCECOL',
+        'SSCI': 'SOC SCI',
+        'ICS': 'I&C SCI',
+        'MAE': 'ENGRMAE',
+        'CEMS': 'CBE',
+        'CEE': 'ENGRCEE',
+        'ESS': 'EARTHSS',
+        'PS': 'PHY SCI',
+        'ENGRENGRCEE': 'ENGRCEE',
+        'ANTH': 'ANTHRO',
+        'CS': 'COMPSCI',
+        'PHIL': 'PHILOS',
+        'SPAN': 'SPANISH',
+        'PSB': 'PSCI',
+        'FREN': 'FRENCH',
+        'ENGRMSE': 'MSE',
+        'MMG': 'M&MG',
+        'CLS': 'CRM/LAW',
+        'SOCL': 'SOCIOL',
+        'PPD': 'PP&D'
+    }
+
+    # These are department codes that are in the correct format and otherwise valid, but don't exist in the catalog anymore
+    valid_but_old_departments = [
+        'PSY BEH',
+        'ENVIRON',
+        'EHS',
+        'BIOL',
+        'PHMS',
+    ]
 
     tree_parser = TreeParser('(', ')', ('and', 'or'))
     tokens = tree_parser.tokenize(string)
@@ -325,15 +439,21 @@ def parse_prerequisite_courses(string: str):
                 raise RuntimeError('Parsing error: Ambiguous operator!')
         else:
 
-            # Verify that the token token is a valid course by checking if it's all uppercase. We could instead check if
-            # the course exists, but some courses listed as prerequisites do not appear in the catalog so parsing would
-            # fail for those courses. For example, COMPSCI 111 lists CSE 46 as a prerequisite but CSE 46 is not listed
-            # in the catalog. Better to keep some potentially invalid courses than to fail parsing completely. This also
-            # ensures that we don't accidentally parse prerequisite strings that don't contain a tree of courses, for
-            # example, "Satisfactory completion of the Lower-Division Writing requirement" is listed as the prerequisite
-            # for SOCIOL 155BW. This cannot be parsed as a tree of courses, so it should fail to parse here.
-            if not token.isupper():
-                raise RuntimeError(f'Invalid course: {token}')
+            if valid_courses is not None:
+                split = token.split()
+                department_code = ' '.join(split[:-1])
+                course_number = split[-1]
+
+                if department_code in department_remap:
+                    #logger.info(f'Automatically remapped department code "{department_code}" to "{department_remap[department_code]}"')
+                    department_code = department_remap[department_code]
+
+                if department_code not in valid_courses:
+
+                    if department_code in valid_but_old_departments:
+                        pass  # ignore
+                    else:
+                        raise RuntimeError(f'Department code not found: "{department_code}"')
 
             stack[-1][1].append(token)
 
@@ -408,3 +528,7 @@ if __name__ == '__main__':
     # Save to JSON
     with open('catalog.json', 'w') as file:
         json.dump(courses, file, indent=4)
+
+    for c in courses:
+        if 'prerequisite_or_corequisite' in c:
+            print(c['prerequisite_or_corequisite'])
