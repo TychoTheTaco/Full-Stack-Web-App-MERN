@@ -141,6 +141,50 @@ class TestScheduler(unittest.TestCase):
         schedule = scheduler.create_schedule(graph, constraints, preferences)
         print(schedule)
 
+    def test_graph_small_reverse(self):
+        graph = nx.DiGraph()
+        graph.add_edge('ICS 46', 'COMPSCI 111', t=0)
+        graph.add_edge('ICS 6D', 'COMPSCI 111', t=0)
+        graph.add_edge('MATH 3A', 'COMPSCI 111', t=0)
+        graph.add_edge('ICS 6N', 'COMPSCI 111', t=0)
+        graph.add_edge('MATH 3A', 'COMPSCI 112', t=0)
+        graph.add_edge('ICS 6N', 'COMPSCI 112', t=0)
+        graph.add_edge('ICS 45C', 'COMPSCI 112', t=0)
+        graph.add_edge('ICS 45C', 'ICS 46', t=0)
+        graph.add_edge('ICS 33', 'ICS 45C', t=0)
+        graph.add_edge('EECS 40', 'ICS 45C', t=0)
+        graph.add_edge('ICS 32', 'ICS 33', t=0)
+        graph.add_edge('ICS 32A', 'ICS 33', t=0)
+        graph.add_edge('ICS 31', 'ICS 32', t=0)
+        graph.add_edge('EECS 22L', 'EECS 40', t=0)
+        graph.add_edge('EECS 22', 'EECS 22L', t=0)
+        graph.add_edge('EECS 10', 'EECS 22', t=0)
+        graph.add_edge('EECS 20', 'EECS 22', t=0)
+        graph.add_edge('EECS 12', 'EECS 20', t=0)
+        graph.add_edge('MATH 2B', 'MATH 3A', t=0)
+        graph.add_edge('MATH 5B', 'MATH 3A', t=0)
+
+        # pos = nx.spring_layout(graph)
+        # nx.draw_networkx_labels(graph, pos)
+        # nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, edge_color='r', arrows=True)
+        # plt.show()
+
+        constraints = {
+            'COMPSCI 111': [('or', ['MATH 3A', 'ICS 6N'])],
+            'COMPSCI 112': [('or', ['MATH 3A', 'ICS 6N'])],
+            'ICS 45C': [('or', ['ICS 33', 'EECS 40'])],
+            'ICS 33': [('or', ['ICS 32', 'ICS 32A'])],
+            'EECS 22': [('or', ['EECS 10', 'EECS 20'])],
+            'MATH 3A': [('or', ['MATH 2B', 'MATH 5B'])]
+        }
+
+        preferences = {
+            'ICS 45C': ['ICS 33']
+        }
+
+        schedule = scheduler.create_schedule_reverse(graph, constraints, preferences)
+        print(schedule)
+
 
 if __name__ == '__main__':
     unittest.main()
