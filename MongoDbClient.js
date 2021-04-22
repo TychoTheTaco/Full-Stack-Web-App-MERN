@@ -37,18 +37,11 @@ export class MongoDbClient {
         }
     }
 
-    async listDatabases()
-    {
-        var databasesList = await this.client.db().admin().listDatabases();
-        console.log("Databases:");
-        databasesList.databases.forEach(db => console.log(` - ${db.name}`));
-    }
-
     async insertDocument(docToInsert, dbName = "CoursePlannerDB", collection = "Courses")
     {
         try{
             var db = this.client.db(dbName);
-            db.collection(collection).insertMany(docToInsert);
+            await db.collection(collection).insertMany(docToInsert);
         }
         catch(error)
         {

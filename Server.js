@@ -1,5 +1,7 @@
 import Express from "express";
-import { MongoDbClient } from './DBReader.js';
+import { CourseCatalog } from './CourseCatalog.js';
+
+
 const courseData = [
     {
         "CourseID" : "A",
@@ -37,14 +39,9 @@ class Routes
 
 }
 
-// Uncomment to try out db connections
-// let dbClient = new MongoDbClient();
-// await dbClient.connect();
-// await dbClient.listDatabases();
-//await dbClient.insertDocument(courseData);
-//await dbClient.retrieveDocument();
-//await dbClient.close();
 
+let catalog = new CourseCatalog();
+catalog.LoadCatalog().then(catalog.PutCourses(courseData));
 
 /// Uncomment to publish server.
 // const app = Express();
@@ -52,8 +49,9 @@ class Routes
 // let routes = new Routes();
 // app.get("/", routes.Root)
 // app.get("/course/:CourseID", routes.getcourseid);
+// app.post()
+// app.delete()
 // app.listen(port, ()=> console.log("listening on port" + port ))
 
 
-//app.post()
-//app.delete()
+
