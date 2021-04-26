@@ -1,19 +1,15 @@
-import { MongoDbClient } from './MongoDbClient.js';
 
 export class CourseCatalog
 {
-    constructor()
+    constructor(mongoDbClient)
     {
-        this.dbClient = new MongoDbClient();
+        this.dbClient = mongoDbClient;
     }
 
     // Read all data from DB using mongodb client.
-    async LoadCatalog()
+    LoadCatalog()
     {
-        await this.dbClient.connect().then(res =>{ 
-            console.log("IsConnected");
-            this.dbClient.retrieveDocument();
-        });
+
     }
 
     // Returns list of all departments.
@@ -41,9 +37,8 @@ export class CourseCatalog
         this.dbClient.insertDocument(courses);
     }
 
-    // Call to close db connectivity.
-    CloseCatalog()
+    clearCatalog()
     {
-        this.dbClient.close();
+        this.dbClient.removeDocuments();
     }
 }

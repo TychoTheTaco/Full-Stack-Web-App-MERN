@@ -4,9 +4,12 @@ const {MongoClient} = require('mongodb');
 
 export class MongoDbClient {
 
-    constructor(databseUri = "mongodb+srv://ObiWanCoursenobi:ObiWanCoursenobi@cluster0.hckjn.mongodb.net/CoursePlannerDB?retryWrites=true&w=majority")
+    constructor(databseUri = "mongodb+srv://ObiWanCoursenobi:ObiWanCoursenobi@cluster0.hckjn.mongodb.net/CoursePlannerDB?retryWrites=true&w=majority",
+    dbName = "CoursePlannerDB", collection = "Courses")
     {
         this.uri = databseUri;
+        this.dbName = dbName;
+        this.collection = collection;
         this.client = new MongoClient(this.uri, {
             useNewUrlParser: true,
             useUnifiedTopology: true,
@@ -37,17 +40,28 @@ export class MongoDbClient {
         }
     }
 
-    async insertDocument(docToInsert, dbName = "CoursePlannerDB", collection = "Courses")
+    async insertDocument(docToInsert)
     {
         try{
-            var db = this.client.db(dbName);
-            await db.collection(collection).insertMany(docToInsert);
+            var db = this.client.db(this.dbName);
+            await db.collection(this.collection).insertMany(docToInsert);
         }
         catch(error)
         {
             console.log(error);
         }
 
+    }
+
+    async removeDocuments()
+    {
+        try{
+            await this.client.db(this.dbName).collection(this.collection).deleteMany({});
+        }
+        catch(error)
+        {
+            console.log(error);
+        }
     }
 
     retrieveDocument(dbName = "CoursePlannerDB", collection = "Courses")
