@@ -1,4 +1,5 @@
 import { createRequire } from 'module';
+import { Course } from "./Course.js";
 const require = createRequire(import.meta.url);
 const {MongoClient} = require('mongodb');
 
@@ -53,7 +54,7 @@ export class MongoDbClient {
 
     }
 
-    async removeDocuments()
+    async deleteAllDocuments()
     {
         try{
             await this.client.db(this.dbName).collection(this.collection).deleteMany({});
@@ -64,18 +65,18 @@ export class MongoDbClient {
         }
     }
 
-    retrieveDocument(dbName = "CoursePlannerDB", collection = "Courses")
+    retrieveDocument(callBack, dbName = "CoursePlannerDB", collection = "Courses")
     {
+        let courses = []
         var db = this.client.db(dbName);
         var cursor = db.collection(collection).find();
         cursor.each(function(err, item) {
-            // If the item is null then the cursor is exhausted/empty and closed
             if(item == null) {
+                callBack(courses);
                 return;
             }
-
-            console.log(item["courseName"]);
-            // otherwise, do something with the item
+            courses.push(new Course(item["department_code"], item["department_name"], item["number"],
+                         item["title"], item["units"]));
         });
     }
 }

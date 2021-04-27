@@ -5,22 +5,18 @@ import fs from 'fs';
 
 class Routes
 {
-    constructor()
+    constructor(catalog)
     {
-
-    }
-
-    Root = (req, res) => {
-        res.send("Welcome obi wan coursenobi.");
+        this.catalog = catalog
     }
 
     getDept = (req,res) => {
-        res.send("list of departments.");
+        res.json(JSON.stringify(this.catalog.GetDepartments()));
     }
 
     getCourses = (req,res) => {
-        console.log("getcourses for department " + req.params.deptId);
-        res.send("list of courses in department " + req.params.deptId);
+        
+        res.json(JSON.stringify(this.catalog.GetCourseList(req.params.deptId)));
     }
 
     getcourseid = (req,res)=> {
@@ -45,21 +41,21 @@ function resetDbFromFile(catalog, filePath = "./../catalog_parser/catalog.json")
 }
 
 let mongoDbClient = new MongoDbClient();
+let catalog = new CourseCatalog(mongoDbClient);
+
 mongoDbClient.connect().then((resetDb = false)=>
 {
-    let catalog = new CourseCatalog(mongoDbClient);
-
     if(resetDb == true)
     {
         resetDbFromFile(catalog);
     }
-
+    catalog.LoadCatalog();
     app.emit('ready');
 });
 
 const app = Express();
 const port = 3000;
-let routes = new Routes();
+let routes = new Routes(catalog);
 app.get("/coursenobi/departments", routes.getDept);
 app.get("/coursenobi/departments/:deptId/courses", routes.getCourses);
 
