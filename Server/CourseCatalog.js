@@ -25,12 +25,18 @@ export class CourseCatalog
     {
         if(this.departments.length == 0)
         {
+            var prev = {
+                deptId : "",
+                deptName : ""
+            };
             this.courses.forEach((value,index,array) => {
                 var depObj = {
                     deptId : value.deptId,
                     deptName : value.deptName
                 }
+                if(prev["deptId"] != depObj["deptId"])
                 this.departments.push(depObj);
+                prev = depObj;
             });
         }
         return this.departments;

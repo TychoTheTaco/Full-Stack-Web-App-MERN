@@ -11,20 +11,15 @@ class Routes
     }
 
     getDept = (req,res) => {
-        res.json(JSON.stringify(this.catalog.GetDepartments()));
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(this.catalog.GetDepartments(), null, 3));
     }
 
     getCourses = (req,res) => {
         
-        res.json(JSON.stringify(this.catalog.GetCourseList(req.params.deptId)));
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(this.catalog.GetCourseList(req.params.deptId), null, 3));
     }
-
-    getcourseid = (req,res)=> {
-        res.json(this.courseData.find((course)=>{
-            return req.params.CourseID === course.CourseID
-        }))  
-    }
-
 }
 
 function resetDbFromFile(catalog, filePath = "./../catalog_parser/catalog.json") {
@@ -54,10 +49,10 @@ mongoDbClient.connect().then((resetDb = false)=>
 });
 
 const app = Express();
-const port = 3000;
+const port = 5000;
 let routes = new Routes(catalog);
-app.get("/coursenobi/departments", routes.getDept);
-app.get("/coursenobi/departments/:deptId/courses", routes.getCourses);
+app.get("/server/departments", routes.getDept);
+app.get("/server/departments/:deptId/courses", routes.getCourses);
 
 app.on('ready', function() { 
     app.listen(port, ()=> console.log("listening on port" + port));

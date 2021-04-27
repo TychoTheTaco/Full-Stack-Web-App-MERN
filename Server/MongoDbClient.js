@@ -65,18 +65,18 @@ export class MongoDbClient {
         }
     }
 
-    retrieveDocument(callBack, dbName = "CoursePlannerDB", collection = "Courses")
+    retrieveDocument(callBack)
     {
         let courses = []
-        var db = this.client.db(dbName);
-        var cursor = db.collection(collection).find();
+        var db = this.client.db(this.dbName);
+        var cursor = db.collection(this.collection).find();
         cursor.each(function(err, item) {
             if(item == null) {
                 callBack(courses);
                 return;
             }
             courses.push(new Course(item["department_code"], item["department_name"], item["number"],
-                         item["title"], item["units"]));
+                         item["title"], item["units"], item["prerequisite_courses"]));
         });
     }
 }

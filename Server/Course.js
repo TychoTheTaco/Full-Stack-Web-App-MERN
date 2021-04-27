@@ -1,12 +1,13 @@
 export class Course 
 {
-    constructor(department_code, department_name, number, title, units)
+    constructor(department_code, department_name, number, title, units, prereq)
     {
         this.courseId = "" + department_code + " " + number;
         this.deptId = department_code;
         this.deptName = department_name;
         this.courseName = title;
         this.units = units;
+        this.prereq = prereq;
     }
 }
 
