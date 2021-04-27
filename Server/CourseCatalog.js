@@ -4,6 +4,7 @@ export class CourseCatalog
     constructor(mongoDbClient)
     {
         this.courses = []
+        this.courseMap = new Map();
         this.departments = []
         this.dbClient = mongoDbClient;
     }
@@ -18,6 +19,9 @@ export class CourseCatalog
     {
         this.courses = courses;
         console.log("number of courses : " +this.courses.length);
+        this.courses.forEach((value,index,array) => {
+        this.courseMap.set(value.courseId, value);
+        });
     }
 
     // Returns list of all departments.
@@ -49,13 +53,40 @@ export class CourseCatalog
             return value.deptId == deptId
         })
         console.log("Course list length :" + courseList.length);
+        this.SetDependencies(courseList);
         return courseList;
     }
 
-    // Returns a tree of courses and their prerequisites
-    GetCourseGraph(deptName)
+    SetDependencies(courseList)
     {
+        courseList.forEach((value,index,array) => {
+        value["prereq"] = this.ReplacePreReq(value["prereq"])
+        });
+    }
 
+    ReplacePreReq(prereq)
+    {
+        if(Array.isArray(prereq))
+        {
+            prereq.forEach((value,index,array)=>{
+                console.log("Value : " + value)
+                array[index] = this.ReplacePreReq(value);
+            });
+            return prereq;
+        }
+        
+        if(this.courseMap.has(prereq))
+        {
+            prereq = this.courseMap.get(prereq);
+
+            prereq["prereq"]= this.ReplacePreReq(prereq["prereq"]);
+        }
+        else
+        {
+            console.log("Course missing : " + prereq);
+        }
+
+        return prereq;
     }
 
     // Returns true on successful commit of 'courses' to mongodb.
