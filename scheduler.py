@@ -1,3 +1,7 @@
+import collections
+import itertools
+import queue
+
 import networkx as nx
 import networkx.exception
 
@@ -270,60 +274,88 @@ def create_graph(required_courses: [str]) -> nx.DiGraph:
     return graph
 
 
+def get_all_possible_single(graph: nx.DiGraph, node, trail):
+    q = queue.Queue()
+    discovered = []
+
+    q.put(node)
+    discovered.append(node)
+
+    while not q.empty():
+        n = q.get()
+        print('find:', n)
+
+        children = [x for x in graph.successors(n)]
+        print('childs:', children)
+
+        for child in children:
+            if child not in discovered:
+                discovered.append(child)
+                q.put(child)
+
+
+def get_all_possible(graph: nx.DiGraph, required_courses: [str]):
+    alpha_graph = nx.DiGraph()
+    for u, v, d in [x for x in graph.edges(data=True) if x[2]['t'] == 'a']:
+        alpha_graph.add_edge(u, v, **d)
+
+    print('required_courses:', required_courses)
+
+    leaf_nodes = [x[0] for x in alpha_graph.out_degree() if x[1] == 0]
+    print('leafs:', leaf_nodes)
+
+    paths = collections.defaultdict(list)
+    for root in required_courses:
+        for leaf in leaf_nodes:
+            paths[root].extend([x for x in nx.all_simple_paths(alpha_graph, root, leaf)])
+    for k, v in paths.items():
+        print(k, len(v), v)
+
+    # get strand combinations
+    strands = collections.defaultdict(list)
+    for root in required_courses:
+        for path in paths[root]:
+            strands[path[1]].append(path)
+
+        print(root, 'child strands')
+        for k, v in strands.items():
+            print(k, len(v), v)
+
+    # get all combos
+    combos = [x for x in itertools.product(*[strands[x] for x in strands])]
+    print('combos:', len(combos))
+
+    flat_combos = []
+    for c in combos:
+        flat = []
+        for x in c:
+            for i in x:
+                if not i.startswith('or'):
+                    flat.append(i)
+        flat_combos.append(set(flat))
+
+    # sort by fewest courses
+    flat_combos = sorted(flat_combos, key=lambda x: len(x))
+
+    for c in flat_combos:
+        print(len(c), c)
+
+    return flat_combos[0]
+
+
 if __name__ == '__main__':
-    # def add__dual_edge(graph, src, dst, **kwargs):
-    #     graph.add_edge(src, dst, t='a', **kwargs)
-    #     graph.add_edge(dst, src, t='b', **kwargs)
-    #
-    # graph = nx.DiGraph()
-    #
-    # # alpha goes down the tree, beta goes up
-    # add__dual_edge(graph, 'CS 111', 'or-0')
-    # add__dual_edge(graph, 'or-0', 'ICS 46')
-    # add__dual_edge(graph, 'or-0', 'CSE 46')
-    # add__dual_edge(graph, 'CS 111', 'ICS 6D')
-    # add__dual_edge(graph, 'CS 111', 'or-1')
-    # add__dual_edge(graph, 'or-1', 'MATH 3A')
-    # add__dual_edge(graph, 'or-1', 'ICS 6N')
-    # add__dual_edge(graph, 'CS 112', 'ICS 46')
-    # add__dual_edge(graph, 'CS 112', 'CSE 46')
-    # add__dual_edge(graph, 'CS 112', 'or-2')
-    # add__dual_edge(graph, 'or-2', 'MATH 3A')
-    # add__dual_edge(graph, 'or-2', 'ICS 6N')
-    # add__dual_edge(graph, 'ICS 46', 'or-3')
-    # add__dual_edge(graph, 'or-3', 'CSE 45C')
-    # add__dual_edge(graph, 'or-3', 'ICS 45C')
-    # add__dual_edge(graph, 'MATH 3A', 'or-4')
-    # add__dual_edge(graph, 'or-4', 'MATH 2A')
-    # add__dual_edge(graph, 'or-4', 'MATH 5B')
-    # add__dual_edge(graph, 'ICS 45C', 'or-5')
-    # add__dual_edge(graph, 'or-5', 'ICS 33')
-    # add__dual_edge(graph, 'or-5', 'CSE 43')
-    # add__dual_edge(graph, 'or-5', 'EECS 40')
-    # add__dual_edge(graph, 'ICS 33', 'or-6')
-    # add__dual_edge(graph, 'or-6', 'ICS 32')
-    # add__dual_edge(graph, 'or-6', 'CSE 42')
-    # add__dual_edge(graph, 'or-6', 'ICS 32A')
-    # add__dual_edge(graph, 'ICS 32', 'or-7')
-    # add__dual_edge(graph, 'or-7', 'ICS 31')
-    # add__dual_edge(graph, 'or-7', 'CSE 41')
-    # add__dual_edge(graph, 'EECS 40', 'EECS 22L')
-    # add__dual_edge(graph, 'EECS 22L', 'EECS 22', c=1)
-    # add__dual_edge(graph, 'EECS 22', 'or-8')
-    # add__dual_edge(graph, 'or-8', 'EECS 10')
-    # add__dual_edge(graph, 'or-8', 'EECS 20')
-    # add__dual_edge(graph, 'EECS 20', 'EECS 12')
-    # graph.add_edge('EECS 10', 'MATH 2A', t='a', c=1)
-    # graph.add_edge('MATH 2A', 'EECS 10', t='b')
 
     graph = create_graph(['COMPSCI 111', 'COMPSCI 112'])
 
-    import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
+    #
+    # pos = nx.spring_layout(graph)
+    # nx.draw_networkx_labels(graph, pos)
+    # nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, edge_color='r', arrows=True)
+    # plt.show()
+    #
+    # schedule, _ = create_schedule(graph, required_courses=['COMPSCI 111', 'COMPSCI 112', 'EECS 22'])
+    # print('SCHEDULE:', schedule)
 
-    pos = nx.spring_layout(graph)
-    nx.draw_networkx_labels(graph, pos)
-    nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, edge_color='r', arrows=True)
-    plt.show()
-
-    schedule, _ = create_schedule(graph, required_courses=['COMPSCI 111', 'COMPSCI 112', 'EECS 22'])
-    print('SCHEDULE:', schedule)
+    r = get_all_possible(graph, required_courses=['COMPSCI 111', 'COMPSCI 112', 'EECS 22'])
+    print(r)
