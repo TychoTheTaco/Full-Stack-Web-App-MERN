@@ -21,7 +21,7 @@ class Node:
         return self.value == other.value
 
 
-def create_schedule(graph: nx.DiGraph, required_courses: [str]):
+def create_schedule(graph: nx.DiGraph, required_courses: [str], max_courses_per_quarter: int = 4):
     """
     SETUP:
     1) Each course gets its own node
@@ -47,7 +47,21 @@ def create_schedule(graph: nx.DiGraph, required_courses: [str]):
     :param required_courses:
     :return:
     """
+    schedule = []
+    quarter_index = -1
+
     selected_courses = []
+
+    def add(cn):
+        nonlocal quarter_index, schedule
+        if cn not in selected_courses:
+            if len(schedule[quarter_index]) < max_courses_per_quarter:
+                schedule[quarter_index].append(cn)
+            else:
+                schedule.append([])
+                quarter_index += 1
+                schedule[quarter_index].append(cn)
+            selected_courses.append(cn)
 
     # Create a copy of the graph with only alpha-edges (top to bottom). This
     # graph is used to find the 'deepest' required course.
@@ -89,6 +103,9 @@ def create_schedule(graph: nx.DiGraph, required_courses: [str]):
 
         while deepest not in selected_courses:
 
+            schedule.append([])
+            quarter_index += 1
+
             # Get all 'alpha' children of the current node (recursively).
             deepest_alpha_children = get_children(alpha_graph, deepest, 'a')
             print(deepest_alpha_children)
@@ -129,8 +146,37 @@ def create_schedule(graph: nx.DiGraph, required_courses: [str]):
             # Get all 'beta' children of the best child. (Parents in the tree).
             beta_parents = [x[1] for x in graph.edges(best_child)]
 
+            # Can we take anything at the same time? Get all paths from all leaf
+            # nodes to all roots. If there is a leaf that shares no edges in the
+            # path, we can take it at the same time.
+            from collections import defaultdict
+            paths = defaultdict(list)
+            potential_courses = [x[0] for x in alpha_graph.out_degree() if x[1] == 0]
+            for leaf in potential_courses:
+                for root in root_nodes:
+                    paths[leaf].append([x for x in nx.all_simple_paths(alpha_graph, root, leaf)])
+
+            path_sets = defaultdict(set)
+            for k, v in paths.items():
+                for item in v:
+                    if len(item) == 0:
+                        continue
+                    for c in item[0]:
+                        if c not in root_nodes:
+                            path_sets[k].add(c)
+
+            same_time = []
+            for c in potential_courses:
+                can_we_take = True
+                for cc in path_sets[c]:
+                    if cc in path_sets[best_child]:
+                        can_we_take = False
+                print('CAN WE TAKE', c, ':', can_we_take)
+                if can_we_take:
+                    same_time.append(c)
+
             if len(beta_parents) == 0:
-                selected_courses.append(best_child)
+                add(best_child)
                 maybe_delete_node_and_children(best_child)
                 continue
 
@@ -142,16 +188,23 @@ def create_schedule(graph: nx.DiGraph, required_courses: [str]):
                     if any_in_selected_courses(or_children):
                         pass
                     else:
-                        selected_courses.append(best_child)  # select child
-                        print('SELECT:', best_child)
+                        add(best_child)
                     # delete the or node and all children if no incoming nodes
                     maybe_delete_node_and_children(parent)
                 else:
-                    if best_child not in selected_courses:
-                        selected_courses.append(best_child)
+                    add(best_child)
                     maybe_delete_node_and_children(best_child)
 
-    return selected_courses
+            for c in same_time:
+                if len(schedule[quarter_index]) < max_courses_per_quarter:
+                    if c in alpha_graph:
+                        add(c)
+                        bp = [x[1] for x in graph.edges(c)]
+                        for b in bp:
+                            if b.startswith('or'):
+                                maybe_delete_node_and_children(b)
+
+    return schedule, selected_courses
 
 
 def get_course(course_id, courses):
@@ -272,5 +325,5 @@ if __name__ == '__main__':
     nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, edge_color='r', arrows=True)
     plt.show()
 
-    schedule = create_schedule(graph, required_courses=['COMPSCI 111', 'COMPSCI 112', 'EECS 22'])
+    schedule, _ = create_schedule(graph, required_courses=['COMPSCI 111', 'COMPSCI 112', 'EECS 22'])
     print('SCHEDULE:', schedule)
