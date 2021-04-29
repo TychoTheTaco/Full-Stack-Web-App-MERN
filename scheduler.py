@@ -1,6 +1,7 @@
 import collections
 import itertools
 import queue
+from typing import Optional, List
 
 import networkx as nx
 import networkx.exception
@@ -25,7 +26,7 @@ class Node:
         return self.value == other.value
 
 
-def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4):
+def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, completed_courses: Optional[List[str]] = None):
     """
     ALGO:
     1) Create graph of all courses and their dependencies.
@@ -41,8 +42,16 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4):
     10) Run a topological sort to create a schedule
     :param required_courses:
     :param max_courses_per_quarter:
+    :param completed_courses:
     :return:
     """
+    if completed_courses is None:
+        completed_courses = []
+
+    # Remove completed courses from the required courses
+    for course in completed_courses:
+        if course in required_courses:
+            required_courses.remove(course)
 
     # Create a directed graph of all courses and their prerequisites,
     # corequisites, and prerequisite-or-corequisites
@@ -189,6 +198,8 @@ def create_schedule_from_dag(graph: nx.DiGraph, max_courses_per_quarter: int = 4
     schedule = []
     quarter_index = -1
 
+    pending = collections.defaultdict(list)
+
     available = queue.Queue()
     while graph.number_of_nodes() > 0:
 
@@ -205,21 +216,38 @@ def create_schedule_from_dag(graph: nx.DiGraph, max_courses_per_quarter: int = 4
                 node = available.get()
                 if node not in graph:
                     continue
+
+                childs = list(graph.successors(node))
+                if len(childs) == 1:
+                    pending[quarter_index].append(node)
+                    graph.remove_node(node)
+                    continue
+
                 schedule[quarter_index].append(node)
                 graph.remove_node(node)
             else:
                 break
 
+    print('PENDING:', pending)
+    for k, v in pending.items():
+        quarter_index = k
+        for course in v:
+            while len(schedule[quarter_index]) >= max_courses_per_quarter:
+                quarter_index += 1
+            schedule[quarter_index].append(course)
+
     return schedule
+
+
+def show_graph(graph):
+    import matplotlib.pyplot as plt
+    pos = nx.spring_layout(graph, k=0.15, iterations=20)
+    nx.draw_networkx_labels(graph, pos)
+    nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, edge_color='r', arrows=True)
+    plt.show()
 
 
 if __name__ == '__main__':
 
-    schedule = create_schedule(['COMPSCI 111', 'COMPSCI 112', 'EECS 22'])
+    schedule = create_schedule(['COMPSCI 111', 'COMPSCI 112', 'I&C SCI 33', 'COMPSCI 203', 'DANCE 34'])
     print(schedule)
-
-    # import matplotlib.pyplot as plt
-    # pos = nx.spring_layout(g)
-    # nx.draw_networkx_labels(g, pos)
-    # nx.draw_networkx_edges(g, pos, edgelist=g.edges, edge_color='r', arrows=True)
-    # plt.show()
