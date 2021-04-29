@@ -274,26 +274,6 @@ def create_graph(required_courses: [str]) -> nx.DiGraph:
     return graph
 
 
-def get_all_possible_single(graph: nx.DiGraph, node, trail):
-    q = queue.Queue()
-    discovered = []
-
-    q.put(node)
-    discovered.append(node)
-
-    while not q.empty():
-        n = q.get()
-        print('find:', n)
-
-        children = [x for x in graph.successors(n)]
-        print('childs:', children)
-
-        for child in children:
-            if child not in discovered:
-                discovered.append(child)
-                q.put(child)
-
-
 def get_all_possible(graph: nx.DiGraph, required_courses: [str]):
     alpha_graph = nx.DiGraph()
     for u, v, d in [x for x in graph.edges(data=True) if x[2]['t'] == 'a']:
@@ -330,21 +310,72 @@ def get_all_possible(graph: nx.DiGraph, required_courses: [str]):
         flat = []
         for x in c:
             for i in x:
-                if not i.startswith('or'):
-                    flat.append(i)
+                flat.append(i)
         flat_combos.append(set(flat))
 
     # sort by fewest courses
-    flat_combos = sorted(flat_combos, key=lambda x: len(x))
+    def count_nor(x):
+        cnt = 0
+        for i in x:
+            if i.startswith('or'):
+                continue
+            cnt += 1
+        return cnt
+
+    flat_combos = sorted(flat_combos, key=count_nor)
 
     for c in flat_combos:
         print(len(c), c)
 
-    return flat_combos[0]
+    # remove nodes not in best path
+    nodes = [x for x in alpha_graph.nodes()]
+    for node in nodes:
+        if node not in flat_combos[0]:
+            alpha_graph.remove_node(node)
+
+    # remove useless 'or' nodes
+    nodes = [x for x in alpha_graph.nodes()]
+    for node in nodes:
+        if node.startswith('or'):
+            child = next(alpha_graph.successors(node))
+            parent = next(alpha_graph.predecessors(node))
+            alpha_graph.add_edge(parent, child, t='a')
+            alpha_graph.remove_node(node)
+
+    return flat_combos[0], alpha_graph
+
+
+def create_schedule_from_dag(graph: nx.DiGraph, max_courses_per_quarter: int = 4):
+    schedule = []
+    quarter_index = -1
+
+    available = queue.Queue()
+    while graph.number_of_nodes() > 0:
+
+        # Start a new quarter
+        schedule.append([])
+        quarter_index += 1
+
+        # Get available courses
+        for x in [x[0] for x in graph.in_degree() if x[1] == 0]:
+            available.put(x)
+
+        while not available.empty():
+            if len(schedule[quarter_index]) < max_courses_per_quarter:
+                node = available.get()
+                if node not in graph:
+                    continue
+                schedule[quarter_index].append(node)
+                graph.remove_node(node)
+            else:
+                break
+
+    return schedule
+
+
 
 
 if __name__ == '__main__':
-
     graph = create_graph(['COMPSCI 111', 'COMPSCI 112'])
 
     # import matplotlib.pyplot as plt
@@ -357,5 +388,15 @@ if __name__ == '__main__':
     # schedule, _ = create_schedule(graph, required_courses=['COMPSCI 111', 'COMPSCI 112', 'EECS 22'])
     # print('SCHEDULE:', schedule)
 
-    r = get_all_possible(graph, required_courses=['COMPSCI 111', 'COMPSCI 112', 'EECS 22'])
+    r, g = get_all_possible(graph, required_courses=['COMPSCI 111', 'COMPSCI 112', 'EECS 22'])
     print(r)
+
+    import matplotlib.pyplot as plt
+
+    pos = nx.spring_layout(g)
+    nx.draw_networkx_labels(g, pos)
+    nx.draw_networkx_edges(g, pos, edgelist=g.edges, edge_color='r', arrows=True)
+    plt.show()
+
+    schedule = create_schedule_from_dag(g.reverse())
+    print(schedule)
