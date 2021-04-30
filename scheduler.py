@@ -171,55 +171,55 @@ def get_course(course_id, courses):
     return None
 
 
-def add_dual_edge(graph, src, dst, **kwargs):
-    graph.add_edge(src, dst, t='a', **kwargs)
-    graph.add_edge(dst, src, t='b', **kwargs)
-
-
-def create_graph(required_courses: [str]) -> nx.DiGraph:
+def create_graph(courses: [str]) -> nx.DiGraph:
     import json
     with open('catalog_parser/catalog.json', 'r') as file:
-        courses = json.load(file)
+        course_repo = json.load(file)
 
     graph = nx.DiGraph()
 
     or_index = 0
 
-    for course in required_courses:
-        c = get_course(course, courses)
+    for course in courses:
+        c = get_course(course, course_repo)
         if c is None:
             continue
 
+        def parse(p, parent, t='a'):
+            nonlocal or_index
+            if isinstance(p, str):
+                if p in graph:
+                    graph.add_edge(parent, p, t=t)
+                    print('SKIP CHILDS OF', p)
+                    return
+
+                graph.add_edge(parent, p, t=t)
+
+                cc = get_course(p, course_repo)
+                if cc is not None and 'prerequisite_courses' in cc:
+                    parse(cc['prerequisite_courses'], p, 'a')
+                if cc is not None and 'corequisite_courses' in cc:
+                    parse(cc['corequisite_courses'], p, 'b')
+            elif isinstance(p, list):
+                if p[0] == 'or':
+                    oi = f'or-{or_index}'
+                    or_index += 1
+                    graph.add_edge(parent, oi, t=t)
+                    for cc in p[1]:
+                        parse(cc, oi, t='a')
+                elif p[0] == 'and':
+                    for cc in p[1]:
+                        parse(cc, parent, t='a')
+
+        # Prerequisites
         if 'prerequisite_courses' in c:
             pc = c['prerequisite_courses']
-
-            def parse(p, parent):
-                nonlocal or_index
-                if isinstance(p, str):
-                    if p in graph:
-                        add_dual_edge(graph, parent, p)
-                        print('SKIP CHILDS OF', p)
-                        return
-
-                    add_dual_edge(graph, parent, p)
-                    print('ADD DUAL:', parent, p)
-
-                    cc = get_course(p, courses)
-                    if cc is not None and 'prerequisite_courses' in cc:
-                        parse(cc['prerequisite_courses'], p)
-                elif isinstance(p, list):
-                    if p[0] == 'or':
-                        oi = f'or-{or_index}'
-                        or_index += 1
-                        add_dual_edge(graph, parent, oi)
-                        print('ADD DUAL:', parent, oi)
-                        for cc in p[1]:
-                            parse(cc, oi)
-                    elif p[0] == 'and':
-                        for cc in p[1]:
-                            parse(cc, parent)
-
             parse(pc, course)
+
+        # Corequisites
+        if 'corequisite_courses' in c:
+            coro = c['corequisite_courses']
+            parse(coro, course, t='b')
 
     return graph
 
@@ -273,11 +273,18 @@ def show_graph(graph):
     import matplotlib.pyplot as plt
     pos = nx.spring_layout(graph, k=0.15, iterations=20)
     nx.draw_networkx_labels(graph, pos)
-    nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, edge_color='r', arrows=True)
+    color_map = {'a': 'red', 'b': 'blue'}
+    colors = [color_map[x[2]['t']] for x in graph.edges(data=True)]
+    for e in graph.edges(data=True):
+        print(e)
+    nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, edge_color=colors, arrows=True)
     plt.show()
 
 
 if __name__ == '__main__':
 
-    schedule = create_schedule(['COMPSCI 111', 'COMPSCI 112', 'EECS 40'], completed_courses=['EECS 22', 'MATH 3A'])
-    print(schedule)
+    graph = create_graph(['EECS 40'])
+    show_graph(graph)
+
+    #schedule = create_schedule(['COMPSCI 111', 'COMPSCI 112', 'EECS 40'], completed_courses=['EECS 22', 'MATH 3A'])
+    #print(schedule)
