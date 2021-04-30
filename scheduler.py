@@ -62,6 +62,36 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, c
     for u, v, d in [x for x in graph.edges(data=True) if x[2]['t'] == 'a']:
         alpha_graph.add_edge(u, v, **d)
 
+    def maybe_delete_node_and_children(node):
+        for child in [x for x in alpha_graph.successors(node)]:
+            maybe_delete_node_and_children(child)
+        if alpha_graph.in_degree(node) <= 1:
+            alpha_graph.remove_node(node)
+            graph.remove_node(node)
+            print('REMOVE:', node)
+        else:
+            print('delete later', node)
+
+    # Remove completed courses from the graph
+    for course in completed_courses:
+        parents = [x for x in alpha_graph.predecessors(course)]
+        for parent in parents:
+            if parent.startswith('or'):
+
+                # Get children of this 'or' node
+                or_children = [x for x in alpha_graph.successors(parent)]
+
+                # Delete children if they have no other parents
+                for child in or_children:
+                    maybe_delete_node_and_children(child)
+
+                # Delete the 'or' node
+                alpha_graph.remove_node(parent)
+                print('REMOVE:', parent)
+
+            else:
+                maybe_delete_node_and_children(course)
+
     print('required_courses:', required_courses)
 
     leaf_nodes = [x[0] for x in alpha_graph.out_degree() if x[1] == 0]
@@ -249,5 +279,5 @@ def show_graph(graph):
 
 if __name__ == '__main__':
 
-    schedule = create_schedule(['COMPSCI 111', 'COMPSCI 112', 'I&C SCI 33', 'COMPSCI 203', 'DANCE 34'])
+    schedule = create_schedule(['COMPSCI 111', 'COMPSCI 112', 'EECS 40'], completed_courses=['EECS 22', 'MATH 3A'])
     print(schedule)
