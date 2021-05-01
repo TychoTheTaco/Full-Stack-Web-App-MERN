@@ -170,7 +170,7 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, c
     # remove nodes not in best path
     nodes = [x for x in graph.nodes()]
     for node in nodes:
-        if node not in flat_combos[0]:
+        if node not in flat_combos[0][1]:
             graph.remove_node(node)
 
     # remove useless 'or' nodes
@@ -254,7 +254,7 @@ def create_schedule_from_dag(graph: nx.DiGraph, max_courses_per_quarter: int = 4
     schedule = []
     quarter_index = -1
 
-    available = queue.Queue()
+    available = []
     while graph.number_of_nodes() > 0:
 
         # Start a new quarter
@@ -262,15 +262,41 @@ def create_schedule_from_dag(graph: nx.DiGraph, max_courses_per_quarter: int = 4
         quarter_index += 1
 
         # Get available courses
-        for x in [x[0] for x in graph.in_degree() if x[1] == 0]:
-            available.put(x)
+        for node in graph.nodes():
+            children = pred_with_atr(graph, node, {'t': 'a'})
+            if len(children) == 0:
+                available.append(node)
 
-        while not available.empty():
+        skip = []
+        while len(available) > 0 and not all([x in skip for x in available]):
             if len(schedule[quarter_index]) < max_courses_per_quarter:
-                node = available.get()
+                node = available.pop()
                 if node not in graph:
                     continue
 
+                # Check if this course has prerequisites
+                children = succ_with_atr(graph, node, {'t': 'b'})
+
+                # Can we take all children?
+                should_skip = False
+                for child in children:
+                    if child not in available:
+                        should_skip = True
+                        break
+                if should_skip:
+                    skip.append(node)
+                    continue
+
+                # Can we fit all prerequisites in this quarter?
+                if len(schedule[quarter_index]) + 1 + len(children) > max_courses_per_quarter:
+                    # we need to start a new quarter
+                    schedule.append([])
+                    quarter_index += 1
+                    assert 1 + len(children) <= max_courses_per_quarter  # cant have more corequisites that fit in one quarter
+
+                for child in children:
+                    schedule[quarter_index].append(child)
+                    graph.remove_node(child)
                 schedule[quarter_index].append(node)
                 graph.remove_node(node)
             else:

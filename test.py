@@ -7,9 +7,27 @@ import scheduler
 
 class TestScheduler(unittest.TestCase):
 
-    def assert_schedule_equal(self, actual, expected):
-        for a, b in zip(actual, expected):
-            self.assertCountEqual(a, b, f'Expected equality of\nEXPECTED:\n{expected}\nACTUAL:\n{actual}')
+    def assert_schedule_one_of(self, actual, expected_schedules):
+        for expected in expected_schedules:
+            is_ok = True
+            if len(actual) != len(expected):
+                continue
+            for a, b in zip(actual, expected):
+                for x in a:
+                    if x not in b:
+                        is_ok = False
+                        break
+                if not is_ok:
+                    break
+                for x in b:
+                    if x not in a:
+                        is_ok = False
+                        break
+                if not is_ok:
+                    break
+            if is_ok:
+                return
+        self.assertFalse(True, f'Expected equality of\nEXPECTED:\n{expected_schedules}\nACTUAL:\n{actual}')
 
     def test_all_paths_simple(self):
         graph = nx.DiGraph()
@@ -50,57 +68,87 @@ class TestScheduler(unittest.TestCase):
 
     def test_scheduler_simple(self):
         graph = nx.DiGraph()
-        graph.add_edge('A', 'B')
-        graph.add_edge('D', 'C')
-        graph.add_edge('D', 'A')
-        graph.add_edge('D', 'E')
-        graph.add_edge('B', 'F')
-        graph.add_edge('C', 'G')
-        graph.add_edge('C', 'H')
-        graph.add_edge('A', 'I')
+        graph.add_edge('A', 'B', t='a')
+        graph.add_edge('D', 'C', t='a')
+        graph.add_edge('D', 'A', t='a')
+        graph.add_edge('D', 'E', t='a')
+        graph.add_edge('B', 'F', t='a')
+        graph.add_edge('C', 'G', t='a')
+        graph.add_edge('C', 'H', t='a')
+        graph.add_edge('A', 'I', t='a')
         graph = graph.reverse()
-        scheduler.show_graph(graph)
 
         schedule = scheduler.create_schedule_from_dag(graph)
-        self.assert_schedule_equal(
+        self.assert_schedule_one_of(
             schedule,
-            [['E', 'F', 'G', 'H'], ['I', 'B', 'C'], ['A'], ['D']]
+            [
+                [['I', 'H', 'G', 'F'], ['E', 'C', 'B'], ['A'], ['D']]
+            ]
         )
 
     def test_scheduler_cycle(self):
         graph = nx.DiGraph()
-        graph.add_edge('A', 'B')
-        graph.add_edge('D', 'C')
-        graph.add_edge('D', 'A')
-        graph.add_edge('D', 'E')
-        graph.add_edge('B', 'F')
-        graph.add_edge('C', 'G')
-        graph.add_edge('C', 'H')
-        graph.add_edge('A', 'I')
+        graph.add_edge('A', 'B', t='a')
+        graph.add_edge('D', 'C', t='a')
+        graph.add_edge('D', 'A', t='a')
+        graph.add_edge('D', 'E', t='a')
+        graph.add_edge('B', 'F', t='a')
+        graph.add_edge('C', 'G', t='a')
+        graph.add_edge('C', 'H', t='a')
+        graph.add_edge('A', 'I', t='b')
+        graph.add_edge('I', 'A', t='b')
         graph = graph.reverse()
-        scheduler.show_graph(graph)
 
         schedule = scheduler.create_schedule_from_dag(graph)
-        self.assert_schedule_equal(
+        self.assert_schedule_one_of(
             schedule,
-            [['E', 'F', 'G', 'H'], ['I', 'B', 'C'], ['A'], ['D']]
+            [
+                [['H', 'G', 'F', 'E'], ['C', 'B'], ['A', 'I'], ['D']]
+            ]
         )
 
     def test_scheduler_complex(self):
         schedule = scheduler.create_schedule(
             ['COMPSCI 111', 'COMPSCI 112']
         )
-        self.assert_schedule_equal(
+        self.assert_schedule_one_of(
             schedule,
-            [['MATH 3A', 'I&C SCI 6D', 'CSE 46', 'CSE 45C'], ['COMPSCI 111', 'COMPSCI 112']]
+            [
+                [['MATH 3A', 'I&C SCI 6D', 'CSE 46', 'CSE 45C'], ['COMPSCI 111', 'COMPSCI 112']]
+            ]
         )
 
         schedule = scheduler.create_schedule(
             ['COMPSCI 111', 'COMPSCI 112', 'I&C SCI 33'],
         )
-        self.assert_schedule_equal(
+        self.assert_schedule_one_of(
             schedule,
-            [['I&C SCI 6D', 'CSE 46', 'CSE 45C', 'CSE 42'], ['MATH 3A', 'I&C SCI 33'], ['COMPSCI 111', 'COMPSCI 112']]
+            [
+                [['I&C SCI 6D', 'CSE 46', 'CSE 45C', 'CSE 42'], ['MATH 3A', 'I&C SCI 33'], ['COMPSCI 111', 'COMPSCI 112']],
+                [['MATH 3A', 'I&C SCI 6D', 'CSE 46', 'CSE 42'], ['I&C SCI 33', 'CSE 45C', 'COMPSCI 111'], ['COMPSCI 112']]
+            ]
+        )
+
+    def test_scheduler_corequisite_cycle(self):
+        schedule = scheduler.create_schedule(
+            ['MATH 105A']
+        )
+        self.assert_schedule_one_of(
+            schedule,
+            [
+                [['MATH 3A'], ['MATH 105A', 'MATH 105LA']]
+            ]
+        )
+
+    def test_scheduler_eecs163(self):
+        schedule = scheduler.create_schedule(
+            ['EECS 163']
+        )
+        self.assert_schedule_one_of(
+            schedule,
+            [
+                [['MATH 3A'], ['MATH 105A', 'MATH 105LA']]
+            ]
         )
 
 
