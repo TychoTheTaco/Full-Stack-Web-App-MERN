@@ -1,188 +1,74 @@
 import unittest
 
 import networkx as nx
-import matplotlib.pyplot as plt
 
 import scheduler
 
 
 class TestScheduler(unittest.TestCase):
 
-    def test_graph_large(self):
+    def test_all_paths_simple(self):
         graph = nx.DiGraph()
-        graph.add_edge('COMPSCI 111', 'ICS 46', t=0)
-        graph.add_edge('COMPSCI 111', 'CSE 46', t=0)
-        graph.add_edge('COMPSCI 111', 'ICS 6D', t=0)
-        graph.add_edge('COMPSCI 111', 'MATH 3A', t=0)
-        graph.add_edge('COMPSCI 111', 'ICS 6N', t=0)
-        #graph.add_edge('ICS 46', 'CSE 46', t=1)
-        #graph.add_edge('CSE 46', 'ICS 46', t=1)
-        #graph.add_edge('MATH 3A', 'ICS 6N', t=1)
-        #graph.add_edge('ICS 6N', 'MATH 3A', t=1)
-        graph.add_edge('COMPSCI 112', 'MATH 3A', t=0)
-        graph.add_edge('COMPSCI 112', 'ICS 6N', t=0)
-        graph.add_edge('COMPSCI 112', 'CSE 45C', t=0)
-        graph.add_edge('COMPSCI 112', 'ICS 45C', t=0)
-        graph.add_edge('ICS 46', 'CSE 45C', t=0)
-        graph.add_edge('ICS 46', 'ICS 45C', t=0)
-        #graph.add_edge('CSE 45C', 'ICS 45C', t=1)
-        #graph.add_edge('ICS 45C', 'CSE 45C', t=1)
-        graph.add_edge('ICS 45C', 'ICS 33', t=0)
-        graph.add_edge('ICS 45C', 'CSE 43', t=0)
-        graph.add_edge('ICS 45C', 'EECS 40', t=0)
-        #graph.add_edge('ICS 33', 'CSE 43', t=1)
-        #graph.add_edge('CSE 43', 'ICS 33', t=1)
-        #graph.add_edge('CSE 43', 'EECS 40', t=1)
-        #graph.add_edge('EECS 40', 'CSE 43', t=1)
-        graph.add_edge('ICS 33', 'ICS 32', t=0)
-        graph.add_edge('ICS 33', 'CSE 42', t=0)
-        graph.add_edge('ICS 33', 'ICS 32A', t=0)
-        #graph.add_edge('ICS 32', 'CSE 42', t=1)
-        #graph.add_edge('CSE 42', 'ICS 32', t=1)
-        #graph.add_edge('CSE 42', 'ICS 32A', t=1)
-        #graph.add_edge('ICS 32A', 'CSE 42', t=1)
-        graph.add_edge('ICS 32', 'ICS 31', t=0)
-        graph.add_edge('ICS 32', 'CSE 41', t=0)
-        #graph.add_edge('ICS 31', 'CSE 41', t=1)
-        #graph.add_edge('CSE 41', 'ICS 31', t=1)
-        graph.add_edge('EECS 40', 'EECS 22L', t=0)
-        graph.add_edge('EECS 22L', 'EECS 22', t=0)
-        #graph.add_edge('EECS 22L', 'EECS 22', t=2)
-        #graph.add_edge('EECS 22', 'EECS 22L', t=2)
-        graph.add_edge('EECS 22', 'EECS 10', t=0)
-        graph.add_edge('EECS 22', 'EECS 20', t=0)
-        #graph.add_edge('EECS 10', 'EECS 20', t=1)
-        #graph.add_edge('EECS 20', 'EECS 10', t=1)
-        graph.add_edge('EECS 20', 'EECS 12', t=0)
-        graph.add_edge('MATH 3A', 'MATH 2B', t=0)
-        graph.add_edge('MATH 3A', 'MATH 5B', t=0)
-        #graph.add_edge('MATH 2B', 'MATH 5B', t=1)
-        #graph.add_edge('MATH 5B', 'MATH 2A', t=1)
-        #graph.add_edge('EECS 10', 'MATH 2A', t=2)
+        graph.add_edge('A', 'B')
+        graph.add_edge('B', 'C')
+        graph.add_edge('D', 'C')
+        graph.add_edge('D', 'A')
+        graph.add_edge('D', 'E')
 
-        # colors = {
-        #     0: 'r',
-        #     1: 'g',
-        #     2: 'b'
-        # }
-        #
-        # pos = nx.spring_layout(graph, scale=10)
-        # nx.draw_networkx_labels(graph, pos)
-        # nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, edge_color=[colors[x[2]['t']] for x in graph.edges(data=True)],
-        #                        arrows=True)
-        # plt.show()
+        a = list(nx.all_simple_paths(graph, 'D', 'C'))
+        b = scheduler.custom_all_simple_paths(graph, 'D', 'C')
+        self.assertCountEqual(a, b)
 
-        constraints = {
-            'COMPSCI 111': [('or', ['ICS 46', 'CSE 46']), ('or', ['MATH 3A', 'ICS 6N'])],
-            'COMPSCI 112': [('or', ['CSE 45C', 'ICS 45C']), ('or', ['MATH 3A', 'ICS 6N'])],
-            'ICS 46': [('or', ['CSE 45C',  'ICS 45C'])],
-            'ICS 45C': [('or', ['ICS 33', 'CSE 43', 'EECS 40'])],
-            'ICS 33': [('or', ['ICS 32', 'CSE 42', 'ICS 32A'])],
-            'ICS 32': [('or', ['ICS 31', 'CSE 41'])],
-            'EECS 22': [('or', ['EECS 10', 'EECS 20'])],
-            'MATH 3A': [('or', ['MATH 2B', 'MATH 5B'])]
-        }
+    def test_all_paths_complex(self):
+        graph = scheduler.create_graph(['COMPSCI 111', 'COMPSCI 112'])
 
-        preferences = {
-            'ICS 45C': ['EECS 40']
-        }
+        src, dst = 'COMPSCI 111', 'EECS 10'
+        a = list(nx.all_simple_paths(graph, src, dst))
+        b = scheduler.custom_all_simple_paths(graph, src, dst)
+        self.assertCountEqual(a, b)
 
-        schedule = scheduler.create_schedule(graph, constraints, preferences)
-        print(schedule)
-
-    def test_graph_small(self):
+    def test_all_paths_cycle(self):
         graph = nx.DiGraph()
-        graph.add_edge('COMPSCI 111', 'ICS 46', t=0)
-        graph.add_edge('COMPSCI 111', 'ICS 6D', t=0)
-        graph.add_edge('COMPSCI 111', 'MATH 3A', t=0)
-        graph.add_edge('COMPSCI 111', 'ICS 6N', t=0)
-        graph.add_edge('COMPSCI 112', 'MATH 3A', t=0)
-        graph.add_edge('COMPSCI 112', 'ICS 6N', t=0)
-        graph.add_edge('COMPSCI 112', 'ICS 45C', t=0)
-        graph.add_edge('ICS 46', 'ICS 45C', t=0)
-        graph.add_edge('ICS 45C', 'ICS 33', t=0)
-        graph.add_edge('ICS 45C', 'EECS 40', t=0)
-        graph.add_edge('ICS 33', 'ICS 32', t=0)
-        graph.add_edge('ICS 33', 'ICS 32A', t=0)
-        graph.add_edge('ICS 32', 'ICS 31', t=0)
-        graph.add_edge('EECS 40', 'EECS 22L', t=0)
-        graph.add_edge('EECS 22L', 'EECS 22', t=0)
-        graph.add_edge('EECS 22', 'EECS 10', t=0)
-        graph.add_edge('EECS 22', 'EECS 20', t=0)
-        graph.add_edge('EECS 20', 'EECS 12', t=0)
-        graph.add_edge('MATH 3A', 'MATH 2B', t=0)
-        graph.add_edge('MATH 3A', 'MATH 5B', t=0)
+        graph.add_edge('A', 'B', t='a')
+        graph.add_edge('D', 'C', t='a')
+        graph.add_edge('D', 'A', t='a')
+        graph.add_edge('D', 'E', t='a')
+        graph.add_edge('C', 'F', t='a')
+        graph.add_edge('F', 'G', t='b')
+        graph.add_edge('G', 'F', t='b')
+        graph.add_edge('G', 'H', t='a')
+        graph.add_edge('E', 'G', t='a')
 
-        # colors = {
-        #     0: 'r',
-        #     1: 'g',
-        #     2: 'b'
-        # }
-        #
-        # pos = nx.spring_layout(graph, scale=10)
-        # nx.draw_networkx_labels(graph, pos)
-        # nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, edge_color=[colors[x[2]['t']] for x in graph.edges(data=True)],
-        #                        arrows=True)
-        # plt.show()
+        src, dst = 'D', 'H'
+        a = list(nx.all_simple_paths(graph, src, dst))
+        b = scheduler.custom_all_simple_paths(graph, src, dst)
+        self.assertCountEqual(a, b)
 
-        constraints = {
-            'COMPSCI 111': [('or', ['MATH 3A', 'ICS 6N'])],
-            'COMPSCI 112': [('or', ['MATH 3A', 'ICS 6N'])],
-            'ICS 45C': [('or', ['ICS 33', 'EECS 40'])],
-            'ICS 33': [('or', ['ICS 32', 'ICS 32A'])],
-            'EECS 22': [('or', ['EECS 10', 'EECS 20'])],
-            'MATH 3A': [('or', ['MATH 2B', 'MATH 5B'])]
-        }
-
-        preferences = {
-            'ICS 45C': ['ICS 33']
-        }
-
-        schedule = scheduler.create_schedule(graph, constraints, preferences)
-        print(schedule)
-
-    def test_graph_small_reverse(self):
+    def dag_scheduler_simple(self):
         graph = nx.DiGraph()
-        graph.add_edge('ICS 46', 'COMPSCI 111', t=0)
-        graph.add_edge('ICS 6D', 'COMPSCI 111', t=0)
-        graph.add_edge('MATH 3A', 'COMPSCI 111', t=0)
-        graph.add_edge('ICS 6N', 'COMPSCI 111', t=0)
-        graph.add_edge('MATH 3A', 'COMPSCI 112', t=0)
-        graph.add_edge('ICS 6N', 'COMPSCI 112', t=0)
-        graph.add_edge('ICS 45C', 'COMPSCI 112', t=0)
-        graph.add_edge('ICS 45C', 'ICS 46', t=0)
-        graph.add_edge('ICS 33', 'ICS 45C', t=0)
-        graph.add_edge('EECS 40', 'ICS 45C', t=0)
-        graph.add_edge('ICS 32', 'ICS 33', t=0)
-        graph.add_edge('ICS 32A', 'ICS 33', t=0)
-        graph.add_edge('ICS 31', 'ICS 32', t=0)
-        graph.add_edge('EECS 22L', 'EECS 40', t=0)
-        graph.add_edge('EECS 22', 'EECS 22L', t=0)
-        graph.add_edge('EECS 10', 'EECS 22', t=0)
-        graph.add_edge('EECS 20', 'EECS 22', t=0)
-        graph.add_edge('EECS 12', 'EECS 20', t=0)
-        graph.add_edge('MATH 2B', 'MATH 3A', t=0)
-        graph.add_edge('MATH 5B', 'MATH 3A', t=0)
+        graph.add_edge('A', 'B')
+        graph.add_edge('D', 'C')
+        graph.add_edge('D', 'A')
+        graph.add_edge('D', 'E')
+        graph.add_edge('B', 'F')
+        graph.add_edge('C', 'G')
+        graph.add_edge('C', 'H')
+        graph.add_edge('A', 'I')
+        graph = graph.reverse()
+        scheduler.show_graph(graph)
 
-        # pos = nx.spring_layout(graph)
-        # nx.draw_networkx_labels(graph, pos)
-        # nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, edge_color='r', arrows=True)
-        # plt.show()
+        schedule = scheduler.create_schedule_from_dag(graph)
+        self.assertEqual([['B', 'C', 'E'], ['A'], ['D']], schedule)
 
-        constraints = {
-            'COMPSCI 111': [('or', ['MATH 3A', 'ICS 6N'])],
-            'COMPSCI 112': [('or', ['MATH 3A', 'ICS 6N'])],
-            'ICS 45C': [('or', ['ICS 33', 'EECS 40'])],
-            'ICS 33': [('or', ['ICS 32', 'ICS 32A'])],
-            'EECS 22': [('or', ['EECS 10', 'EECS 20'])],
-            'MATH 3A': [('or', ['MATH 2B', 'MATH 5B'])]
-        }
+    def test_scheduler_complex(self):
+        schedule = scheduler.create_schedule(
+            ['COMPSCI 111', 'COMPSCI 112']
+        )
+        self.assertEqual(schedule, [['MATH 3A', 'I&C SCI 6D', 'CSE 46', 'CSE 45C'], ['COMPSCI 111', 'COMPSCI 112']])
 
-        preferences = {
-            'ICS 45C': ['ICS 33']
-        }
-
-        schedule = scheduler.create_schedule_reverse(graph, constraints, preferences)
+        schedule = scheduler.create_schedule(
+            ['COMPSCI 111', 'COMPSCI 112', 'I&C SCI 33'],
+        )
         print(schedule)
 
 

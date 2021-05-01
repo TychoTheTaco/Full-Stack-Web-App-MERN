@@ -26,6 +26,49 @@ class Node:
         return self.value == other.value
 
 
+def succ_with_atr(graph: nx.DiGraph, node, attr: {}):
+    children = []
+    for src, dst, data in graph.edges(node, data=True):
+        if len(attr) == 0:
+            children.append(dst)
+        for k, v in attr.items():
+            if k in data and data[k] == v:
+                children.append(dst)
+    return children
+
+
+def pred_with_atr(graph, node, attr):
+    parents = []
+    for src, dst, data in graph.in_edges(node, data=True):
+        if len(attr) == 0:
+            parents.append(dst)
+        for k, v in attr.items():
+            if k in data and data[k] == v:
+                parents.append(src)
+    return parents
+
+
+def custom_all_simple_paths(graph, src, dst):
+    paths = []
+
+    stack = []
+
+    def dfs(node):
+        stack.append(node)
+        if node == dst:
+            paths.append(list(stack))
+
+        for s, d, data in graph.edges(node, data=True):
+            if len(stack) > 1 and stack[-2] == d:
+                continue
+            dfs(d)
+        stack.pop()
+
+    dfs(src)
+
+    return paths
+
+
 def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, completed_courses: Optional[List[str]] = None):
     """
     ALGO:
@@ -68,9 +111,6 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, c
         if alpha_graph.in_degree(node) <= 1:
             alpha_graph.remove_node(node)
             graph.remove_node(node)
-            print('REMOVE:', node)
-        else:
-            print('delete later', node)
 
     # Remove completed courses from the graph
     for course in completed_courses:
@@ -92,17 +132,12 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, c
             else:
                 maybe_delete_node_and_children(course)
 
-    print('required_courses:', required_courses)
-
     leaf_nodes = [x[0] for x in alpha_graph.out_degree() if x[1] == 0]
-    print('leafs:', leaf_nodes)
 
     paths = collections.defaultdict(list)
     for root in required_courses:
         for leaf in leaf_nodes:
-            paths[root].extend([x for x in nx.all_simple_paths(alpha_graph, root, leaf)])
-    for k, v in paths.items():
-        print(k, len(v), v)
+            paths[root].extend([x for x in custom_all_simple_paths(alpha_graph, root, leaf)])
 
     # get strand combinations
     strands = collections.defaultdict(list)
@@ -110,13 +145,8 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, c
         for path in paths[root]:
             strands[path[1]].append(path)
 
-    print('child strands')
-    for k, v in strands.items():
-        print(k, len(v), v)
-
     # get all combos
     combos = [x for x in itertools.product(*[strands[x] for x in strands])]
-    print('combos:', len(combos))
 
     flat_combos = []
     for c in combos:
@@ -136,9 +166,6 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, c
         return cnt
 
     flat_combos = sorted(flat_combos, key=count_nor)
-
-    #for c in flat_combos:
-    #    print(len(c), c)
 
     # remove nodes not in best path
     nodes = [x for x in alpha_graph.nodes()]
@@ -190,7 +217,6 @@ def create_graph(courses: [str]) -> nx.DiGraph:
             if isinstance(p, str):
                 if p in graph:
                     graph.add_edge(parent, p, t=t)
-                    print('SKIP CHILDS OF', p)
                     return
 
                 graph.add_edge(parent, p, t=t)
@@ -225,6 +251,8 @@ def create_graph(courses: [str]) -> nx.DiGraph:
 
 
 def create_schedule_from_dag(graph: nx.DiGraph, max_courses_per_quarter: int = 4):
+    show_graph(graph)
+
     schedule = []
     quarter_index = -1
 
@@ -274,17 +302,16 @@ def show_graph(graph):
     pos = nx.spring_layout(graph, k=0.15, iterations=20)
     nx.draw_networkx_labels(graph, pos)
     color_map = {'a': 'red', 'b': 'blue'}
-    colors = [color_map[x[2]['t']] for x in graph.edges(data=True)]
-    for e in graph.edges(data=True):
-        print(e)
+    colors = []
+    for src, dst, data in graph.edges(data=True):
+        if 't' in data:
+            colors.append(color_map[data['t']])
+        else:
+            colors.append('red')
     nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, edge_color=colors, arrows=True)
     plt.show()
 
 
 if __name__ == '__main__':
-
-    graph = create_graph(['EECS 40'])
-    show_graph(graph)
-
-    #schedule = create_schedule(['COMPSCI 111', 'COMPSCI 112', 'EECS 40'], completed_courses=['EECS 22', 'MATH 3A'])
-    #print(schedule)
+    schedule = create_schedule(['EECS 163'])
+    print(schedule)
