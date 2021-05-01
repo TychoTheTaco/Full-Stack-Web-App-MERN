@@ -100,44 +100,44 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, c
     # corequisites, and prerequisite-or-corequisites
     graph = create_graph(required_courses)
 
-    # Create a graph of only 'alpha' edges
-    alpha_graph = nx.DiGraph()
-    for u, v, d in [x for x in graph.edges(data=True) if x[2]['t'] == 'a']:
-        alpha_graph.add_edge(u, v, **d)
-
     def maybe_delete_node_and_children(node):
-        for child in [x for x in alpha_graph.successors(node)]:
+        for child in [x for x in graph.successors(node)]:
             maybe_delete_node_and_children(child)
-        if alpha_graph.in_degree(node) <= 1:
-            alpha_graph.remove_node(node)
+        if graph.in_degree(node) <= 1:
             graph.remove_node(node)
 
     # Remove completed courses from the graph
     for course in completed_courses:
-        parents = [x for x in alpha_graph.predecessors(course)]
+        parents = [x for x in graph.predecessors(course)]
         for parent in parents:
             if parent.startswith('or'):
 
                 # Get children of this 'or' node
-                or_children = [x for x in alpha_graph.successors(parent)]
+                or_children = [x for x in graph.successors(parent)]
 
                 # Delete children if they have no other parents
                 for child in or_children:
                     maybe_delete_node_and_children(child)
 
                 # Delete the 'or' node
-                alpha_graph.remove_node(parent)
+                graph.remove_node(parent)
                 print('REMOVE:', parent)
 
             else:
                 maybe_delete_node_and_children(course)
 
-    leaf_nodes = [x[0] for x in alpha_graph.out_degree() if x[1] == 0]
+    # Find all leaf nodes. These are courses with no prerequisites (but they may
+    # have corequisites)
+    leaf_nodes = []
+    for node in graph.nodes():
+        children = succ_with_atr(graph, node, {'t': 'a'})
+        if len(children) == 0:
+            leaf_nodes.append(node)
 
     paths = collections.defaultdict(list)
     for root in required_courses:
         for leaf in leaf_nodes:
-            paths[root].extend([x for x in custom_all_simple_paths(alpha_graph, root, leaf)])
+            paths[root].extend(custom_all_simple_paths(graph, root, leaf))
 
     # get strand combinations
     strands = collections.defaultdict(list)
@@ -148,42 +148,42 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, c
     # get all combos
     combos = [x for x in itertools.product(*[strands[x] for x in strands])]
 
+    def get_depth(path):
+        depth = 0
+        for node in path:
+            if node.startswith('or'):
+                continue
+            depth += 1
+        return depth
+
     flat_combos = []
     for c in combos:
         flat = []
         for x in c:
             for i in x:
                 flat.append(i)
-        flat_combos.append(set(flat))
+        flat_combos.append((get_depth(flat), set(flat)))
 
     # sort by fewest courses
-    def count_nor(x):
-        cnt = 0
-        for i in x:
-            if i.startswith('or'):
-                continue
-            cnt += 1
-        return cnt
-
-    flat_combos = sorted(flat_combos, key=count_nor)
+    flat_combos = sorted(flat_combos, key=lambda x:x[0])
 
     # remove nodes not in best path
-    nodes = [x for x in alpha_graph.nodes()]
+    nodes = [x for x in graph.nodes()]
     for node in nodes:
         if node not in flat_combos[0]:
-            alpha_graph.remove_node(node)
+            graph.remove_node(node)
 
     # remove useless 'or' nodes
-    nodes = [x for x in alpha_graph.nodes()]
+    nodes = [x for x in graph.nodes()]
     for node in nodes:
         if node.startswith('or'):
-            child = next(alpha_graph.successors(node))
-            parent = next(alpha_graph.predecessors(node))
-            alpha_graph.add_edge(parent, child, t='a')
-            alpha_graph.remove_node(node)
+            child = next(graph.successors(node))
+            parent = next(graph.predecessors(node))
+            graph.add_edge(parent, child, t='a')
+            graph.remove_node(node)
 
     # Create schedule from DAG
-    schedule = create_schedule_from_dag(alpha_graph.reverse(), max_courses_per_quarter)
+    schedule = create_schedule_from_dag(graph.reverse(), max_courses_per_quarter)
 
     return schedule
 
@@ -251,12 +251,8 @@ def create_graph(courses: [str]) -> nx.DiGraph:
 
 
 def create_schedule_from_dag(graph: nx.DiGraph, max_courses_per_quarter: int = 4):
-    show_graph(graph)
-
     schedule = []
     quarter_index = -1
-
-    pending = collections.defaultdict(list)
 
     available = queue.Queue()
     while graph.number_of_nodes() > 0:
@@ -275,24 +271,10 @@ def create_schedule_from_dag(graph: nx.DiGraph, max_courses_per_quarter: int = 4
                 if node not in graph:
                     continue
 
-                childs = list(graph.successors(node))
-                if len(childs) == 1:
-                    pending[quarter_index].append(node)
-                    graph.remove_node(node)
-                    continue
-
                 schedule[quarter_index].append(node)
                 graph.remove_node(node)
             else:
                 break
-
-    print('PENDING:', pending)
-    for k, v in pending.items():
-        quarter_index = k
-        for course in v:
-            while len(schedule[quarter_index]) >= max_courses_per_quarter:
-                quarter_index += 1
-            schedule[quarter_index].append(course)
 
     return schedule
 
