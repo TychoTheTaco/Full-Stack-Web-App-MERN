@@ -126,27 +126,63 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, c
             else:
                 maybe_delete_node_and_children(course)
 
-    # Find all leaf nodes. These are courses with no prerequisites (but they may
-    # have corequisites)
-    leaf_nodes = []
-    for node in graph.nodes():
+    # Find all 'or' nodes
+    or_nodes = {}
+
+    def dfs(node):
         children = succ_with_atr(graph, node, {'t': 'a'})
-        if len(children) == 0:
-            leaf_nodes.append(node)
+        if node.startswith('or'):
+            or_nodes[node] = children
+        for child in children:
+            dfs(child)
 
-    paths = collections.defaultdict(list)
-    for root in required_courses:
-        for leaf in leaf_nodes:
-            paths[root].extend(custom_all_simple_paths(graph, root, leaf))
+    for node in required_courses:
+        dfs(node)
 
-    # get strand combinations
-    strands = collections.defaultdict(list)
-    for root in required_courses:
-        for path in paths[root]:
-            strands[path[1]].append(path)
+    # get all combinations
+    or_node_indexes = {node: 0 for node in or_nodes}
+    or_node_as_list = [0 for node in or_node_indexes]
+    all_indexes = []
 
-    # get all combos
-    combos = [x for x in itertools.product(*[strands[x] for x in strands])]
+    def add(index):
+        if index < 0:
+            return False
+        or_node_as_list[index] += 1
+        if or_node_as_list[index] >= len(or_nodes[list(or_node_indexes.keys())[index]]):
+            or_node_as_list[index] = 0
+            return add(index - 1)
+        return True
+
+    while True:
+        all_indexes.append(list(or_node_as_list))
+        if not add(len(or_node_as_list) - 1):
+            break
+
+    def list_to_dict(indexes):
+        return {list(or_nodes)[i]: or_nodes[list(or_nodes)[i]][v] for i, v in enumerate(indexes)}
+
+    def get_all_courses(node, choices):
+        courses = []
+
+        def dfs(node):
+            courses.append(node)
+            if node.startswith('or'):
+                dfs(choices[node])
+            else:
+                children = succ_with_atr(graph, node, {})
+                for child in children:
+                    if child not in courses:
+                        dfs(child)
+
+        dfs(node)
+        return courses
+
+    all_combos_per_root = []
+    for choice in all_indexes:
+        paths = {}
+        for node in required_courses:
+            paths[node] = get_all_courses(node, list_to_dict(choice))
+        all_combos_per_root.append(paths)
 
     def get_depth(path):
         depth = 0
@@ -156,21 +192,22 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, c
             depth += 1
         return depth
 
-    flat_combos = []
-    for c in combos:
-        flat = []
-        for x in c:
-            for i in x:
-                flat.append(i)
-        flat_combos.append((get_depth(flat), set(flat)))
+    def get_choice_depth(choice):
+        d = 0
+        for src, path in choice.items():
+            d += get_depth(path)
+        return d
 
-    # sort by fewest courses
-    flat_combos = sorted(flat_combos, key=lambda x:x[0])
+    sorted_choices = sorted(all_combos_per_root, key=get_choice_depth)
+    best_path = set()
+    for value in sorted_choices[0].values():
+        for x in value:
+            best_path.add(x)
 
     # remove nodes not in best path
     nodes = [x for x in graph.nodes()]
     for node in nodes:
-        if node not in flat_combos[0][1]:
+        if node not in best_path:
             graph.remove_node(node)
 
     # remove useless 'or' nodes
@@ -208,6 +245,9 @@ def create_graph(courses: [str]) -> nx.DiGraph:
     or_index = 0
 
     for course in courses:
+        if course in graph:
+            continue
+
         c = get_course(course, course_repo)
         if c is None:
             continue

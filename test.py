@@ -114,7 +114,8 @@ class TestScheduler(unittest.TestCase):
         self.assert_schedule_one_of(
             schedule,
             [
-                [['MATH 3A', 'I&C SCI 6D', 'CSE 46', 'CSE 45C'], ['COMPSCI 111', 'COMPSCI 112']]
+                [['MATH 3A', 'I&C SCI 6D', 'CSE 46', 'CSE 45C'], ['COMPSCI 111', 'COMPSCI 112']],
+                [['MATH 3A', 'I&C SCI 6D', 'CSE 45C'], ['COMPSCI 112', 'I&C SCI 46'], ['COMPSCI 111']]
             ]
         )
 
