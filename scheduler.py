@@ -129,12 +129,15 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, c
     # Find all 'or' nodes
     or_nodes = {}
 
+    visited = []
     def dfs(node):
-        children = succ_with_atr(graph, node, {'t': 'a'})
+        visited.append(node)
+        children = succ_with_atr(graph, node, {})
         if node.startswith('or'):
             or_nodes[node] = children
         for child in children:
-            dfs(child)
+            if child not in visited:
+                dfs(child)
 
     for node in required_courses:
         dfs(node)
@@ -358,8 +361,3 @@ def show_graph(graph):
             colors.append('red')
     nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, edge_color=colors, arrows=True)
     plt.show()
-
-
-if __name__ == '__main__':
-    schedule = create_schedule(['EECS 163'])
-    print(schedule)
