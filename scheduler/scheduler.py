@@ -240,7 +240,7 @@ def get_course(course_id, courses):
 
 def create_graph(courses: [str]) -> nx.DiGraph:
     import json
-    with open('catalog_parser/catalog.json', 'r') as file:
+    with open('../catalog_parser/catalog.json', 'r') as file:
         course_repo = json.load(file)
 
     graph = nx.DiGraph()
