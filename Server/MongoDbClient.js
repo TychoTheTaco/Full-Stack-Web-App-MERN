@@ -79,6 +79,20 @@ export class MongoDbClient {
                          item["title"], item["units"], item["prerequisite_courses"]));
         });
     }
+
+    getRawData(callback){
+        let courses = []
+        let db = this.client.db(this.dbName);
+        let cursor = db.collection(this.collection).find();
+        cursor.each(function(err, item) {
+            if(item == null) {
+                callback(courses);
+                return;
+            }
+            courses.push(item);
+        });
+        return courses;
+    }
 }
 
 

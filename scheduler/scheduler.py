@@ -69,7 +69,7 @@ def custom_all_simple_paths(graph, src, dst):
     return paths
 
 
-def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, completed_courses: Optional[List[str]] = None):
+def create_schedule(course_repo, required_courses: [str], max_courses_per_quarter: int = 4, completed_courses: Optional[List[str]] = None):
     """
     ALGO:
     1) Create graph of all courses and their dependencies.
@@ -98,7 +98,7 @@ def create_schedule(required_courses: [str], max_courses_per_quarter: int = 4, c
 
     # Create a directed graph of all courses and their prerequisites,
     # corequisites, and prerequisite-or-corequisites
-    graph = create_graph(required_courses)
+    graph = create_graph(course_repo, required_courses)
 
     def maybe_delete_node_and_children(node):
         for child in [x for x in graph.successors(node)]:
@@ -238,10 +238,7 @@ def get_course(course_id, courses):
     return None
 
 
-def create_graph(courses: [str]) -> nx.DiGraph:
-    import json
-    with open('../catalog_parser/catalog.json', 'r') as file:
-        course_repo = json.load(file)
+def create_graph(course_repo, courses: [str]) -> nx.DiGraph:
 
     graph = nx.DiGraph()
 

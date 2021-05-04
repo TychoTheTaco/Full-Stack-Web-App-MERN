@@ -28,16 +28,24 @@ class Routes {
         res.setHeader('Content-Type', 'application/json');
 
         // Create new python process
-        const python = spawn('python', ['../scheduler/create_schedule.py']);
+        const python = spawn('../venv/Scripts/python.exe', ['../scheduler/create_schedule.py']);
+
+        const all_courses = catalog.GetRawData();
+
+        const payload = {
+            'catalog': all_courses,
+            'required_courses': ['COMPSCI 111', 'COMPSCI 112'],  // TODO: this should be variable
+            'completed_courses': [],
+            'max_courses_per_quarter': 4
+        }
 
         // Write data to STDIN
-        python.stdin.write('{"a": 3}')
+        python.stdin.write(JSON.stringify(payload));
         python.stdin.end();
 
         // Read data from STDOUT
         let dataToSend;
         python.stdout.on('data', (data) => {
-            console.log('Pipe data from python script ...');
             dataToSend = data.toString();
         });
 
