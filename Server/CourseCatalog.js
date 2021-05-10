@@ -1,19 +1,21 @@
-
 export class CourseCatalog
 {
     constructor(mongoDbClient)
     {
         this.courses = []
         this.courseMap = new Map();
+        this.deptCourses = new Map();
         this.departments = []
         this.dbClient = mongoDbClient;
-        this.deptCourses = new Map();
+        this.rawData = [];
     }
 
     // Read all data from DB using mongodb client.
-    LoadCatalog()
-    {
+    LoadCatalog() {
         this.dbClient.retrieveDocument(this.SetCourses.bind(this));
+        this.dbClient.getRawData((data) => {
+            this.rawData = data;
+        });
     }
 
     SetCourses(courses)
@@ -45,6 +47,10 @@ export class CourseCatalog
             });
         }
         return this.departments;
+    }
+
+    GetRawData() {
+        return this.rawData;
     }
 
     // Returns list of courses from department with name deptID.
