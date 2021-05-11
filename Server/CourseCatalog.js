@@ -4,6 +4,7 @@ export class CourseCatalog
     {
         this.courses = []
         this.courseMap = new Map();
+        this.deptCourses = new Map();
         this.departments = []
         this.dbClient = mongoDbClient;
         this.rawData = [];
@@ -55,11 +56,16 @@ export class CourseCatalog
     // Returns list of courses from department with name deptID.
     GetCourseList(deptId)
     {
+        if(this.deptCourses.has(deptId))
+        {
+            return this.deptCourses.get(deptId);
+        }
         var courseList = this.courses.filter((value,index,array)=>{
             return value.deptId == deptId
         })
         console.log("Course list length :" + courseList.length);
         this.SetDependencies(courseList);
+        this.deptCourses.set(deptId,courseList);
         return courseList;
     }
 
