@@ -2,6 +2,7 @@ export class CourseCatalog
 {
     constructor(mongoDbClient)
     {
+        this.deptIds = new Set();
         this.courses = []
         this.courseMap = new Map();
         this.deptCourses = new Map();
@@ -32,18 +33,17 @@ export class CourseCatalog
     {
         if(this.departments.length == 0)
         {
-            var prev = {
-                deptId : "",
-                deptName : ""
-            };
             this.courses.forEach((value,index,array) => {
-                var depObj = {
-                    deptId : value.deptId,
-                    deptName : value.deptName
+                
+                if(!this.deptIds.has(value.deptId))
+                {
+                    var depObj = {
+                        deptId : value.deptId,
+                        deptName : value.deptName
+                    }
+                    this.departments.push(depObj);
+                    this.deptIds.add(value.deptId);
                 }
-                if(prev["deptId"] != depObj["deptId"])
-                this.departments.push(depObj);
-                prev = depObj;
             });
         }
         return this.departments;
