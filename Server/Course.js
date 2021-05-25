@@ -8,6 +8,14 @@ export class Course
         this.courseName = title;
         this.units = units;
         this.prereq = prereq;
+        this.filter();
+    }
+
+    filter()
+    {
+        this.deptId = this.deptId.toLowerCase();
+        this.deptId = this.deptId.replace("/","");
+        this.deptId = this.deptId.replace(" ","");
     }
 }
 

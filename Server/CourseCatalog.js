@@ -2,8 +2,10 @@ export class CourseCatalog
 {
     constructor(mongoDbClient)
     {
+        this.deptIds = new Set();
         this.courses = []
         this.courseMap = new Map();
+        this.deptCourses = new Map();
         this.departments = []
         this.dbClient = mongoDbClient;
         this.rawData = [];
@@ -31,18 +33,17 @@ export class CourseCatalog
     {
         if(this.departments.length == 0)
         {
-            var prev = {
-                deptId : "",
-                deptName : ""
-            };
             this.courses.forEach((value,index,array) => {
-                var depObj = {
-                    deptId : value.deptId,
-                    deptName : value.deptName
+                
+                if(!this.deptIds.has(value.deptId))
+                {
+                    var depObj = {
+                        deptId : value.deptId,
+                        deptName : value.deptName
+                    }
+                    this.departments.push(depObj);
+                    this.deptIds.add(value.deptId);
                 }
-                if(prev["deptId"] != depObj["deptId"])
-                this.departments.push(depObj);
-                prev = depObj;
             });
         }
         return this.departments;
@@ -55,11 +56,16 @@ export class CourseCatalog
     // Returns list of courses from department with name deptID.
     GetCourseList(deptId)
     {
+        if(this.deptCourses.has(deptId))
+        {
+            return this.deptCourses.get(deptId);
+        }
         var courseList = this.courses.filter((value,index,array)=>{
             return value.deptId == deptId
         })
         console.log("Course list length :" + courseList.length);
         this.SetDependencies(courseList);
+        this.deptCourses.set(deptId,courseList);
         return courseList;
     }
 
