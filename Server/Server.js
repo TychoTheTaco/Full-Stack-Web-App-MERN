@@ -7,6 +7,8 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const {spawn} = require('child_process');
 
+const url = require('url');
+
 class Routes {
     constructor(catalog) {
         this.catalog = catalog
@@ -25,6 +27,23 @@ class Routes {
 
     getSchedule = (req, res) => {
 
+        const queryParams = url.parse(req.url, true).query;
+
+        /*
+        Expected query params:
+        required: a comma separated list of required courses.
+
+        Example request:
+        Courses: COMPSCI 111, COMPSCI 112, ART 11A
+        http://localhost:5000/server/schedule?required=COMPSCI%20111%2C%20COMPSCI%20112%2C%20ART%2011A
+         */
+
+        // Required courses
+        let requiredCourses = [];
+        queryParams['required'].split(',').forEach(item => {
+            requiredCourses.push(item.trim());
+        })
+
         res.setHeader('Content-Type', 'application/json');
 
         // Create new python process
@@ -34,7 +53,7 @@ class Routes {
 
         const payload = {
             'catalog': all_courses,
-            'required_courses': ['COMPSCI 111', 'COMPSCI 112'],  // TODO: this should be variable
+            'required_courses': requiredCourses,
             'completed_courses': [],
             'max_courses_per_quarter': 4
         }
