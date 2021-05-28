@@ -76,7 +76,7 @@ export class MongoDbClient {
                 return;
             }
             courses.push(new Course(item["department_code"], item["department_name"], item["number"],
-                         item["title"], item["units"], item["prerequisite_courses"]));
+                         item["title"], item["units"], item["prerequisite_courses"],item["description"]));
         });
     }
 
