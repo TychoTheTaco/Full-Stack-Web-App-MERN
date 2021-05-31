@@ -1,22 +1,37 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Dropdown } from 'semantic-ui-react'
+import $ from 'jquery'
 
-const Header = ({ departments, currDept }) => {
+const Header = ({departments,currDept,setCurrDept,getCourses}) => {
+    //console.log("from header");
+    //console.log(departments);
+    const handleChange = (e, data) => {
+        console.log("dropdown | clicked on " + e.target.innerText);
+        setCurrDept(e.target.innerText);
+        getCourses(data.value);
+    }
+
     return (
-        <div>
+        <div id="hDiv">
             <Dropdown
-                placeholder='Select Department'
+                id="DeptDrop"
+                placeholder="Select Department"
                 fluid
                 search
-                selection
+                selection={false}
+                value={currDept}
                 options={departments}
-                onChange={ function(value, text, $selectedItem) {
-                    console.log("WE GOT HERE");
-                    console.log(this.dropdown('get value'));
-                }}
+                onChange={handleChange}
             />
         </div>
     )
+    /*
+    return (
+        <div id="hDiv">
+            <CDropdown title="Select movie" items={departments} />
+        </div>
+    )
+    */
 }
 
 export default Header
