@@ -21,7 +21,11 @@ def main():
         completed_courses=completed_courses
     )
 
-    print(schedule)
+    schedule_json = {}
+    for i, x in enumerate(schedule):
+        schedule_json[f'q{i+1}'] = x
+
+    print(json.dumps(schedule_json))
 
 
 if __name__ == '__main__':
