@@ -1,5 +1,6 @@
 .App {
   text-align: center;
+  height: 100%;
 }
 
 .App-logo {
@@ -37,25 +38,43 @@
   }
 }
 
-.vis-react {
-  width: 65rem;
-  height: 40rem;
-  border: none;
-  padding: 2rem;
-  display: block;
-  margin: 0 auto;
-}
-.vis-react-title {
-  text-align: center;
-}
-
 .horiz-flex {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: stretch;
+  height: 90vh;
+  width: 100%;
+  background-color: rgb(255, 200, 255);
 }
 
 .vert-flex {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  width: 75%;
+}
+
+#chart {
+  background-color: rgb(224, 255, 224);
+}
+
+#hDiv {
+  width: 20em;
+  height: 2em;
+}
+
+.cli {
+  background-color: yellow;
+}
+
+.clihello {
+  background-color: blue;
+}
+
+.cli-hello {
+  background-color: green;
+}
+
+.cli.hello {
+  background-color: purple;
 }

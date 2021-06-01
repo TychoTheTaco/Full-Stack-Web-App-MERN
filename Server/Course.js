@@ -1,6 +1,6 @@
 export class Course 
 {
-    constructor(department_code, department_name, number, title, units, prereq)
+    constructor(department_code, department_name, number, title, units, prereq, desc)
     {
         this.courseId = "" + department_code + " " + number;
         this.deptId = department_code;
@@ -8,6 +8,7 @@ export class Course
         this.courseName = title;
         this.units = units;
         this.prereq = prereq;
+        this.desc = desc;
         this.filter();
     }
 
