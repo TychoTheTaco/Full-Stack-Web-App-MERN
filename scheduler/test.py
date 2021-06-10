@@ -1,3 +1,4 @@
+import json
 import unittest
 
 import networkx as nx
@@ -29,6 +30,10 @@ class TestScheduler(unittest.TestCase):
                 return
         self.assertFalse(True, f'Expected equality of\nEXPECTED:\n{expected_schedules}\nACTUAL:\n{actual}')
 
+    def load_course_repo(self):
+        with open('../catalog_parser/catalog.json') as file:
+            return json.load(file)
+
     def test_all_paths_simple(self):
         graph = nx.DiGraph()
         graph.add_edge('A', 'B')
@@ -42,7 +47,7 @@ class TestScheduler(unittest.TestCase):
         self.assertCountEqual(a, b)
 
     def test_all_paths_complex(self):
-        graph = scheduler.create_graph(['COMPSCI 111', 'COMPSCI 112'])
+        graph = scheduler.create_graph(self.load_course_repo(), ['COMPSCI 111', 'COMPSCI 112'])
 
         src, dst = 'COMPSCI 111', 'EECS 10'
         a = list(nx.all_simple_paths(graph, src, dst))
@@ -109,6 +114,7 @@ class TestScheduler(unittest.TestCase):
 
     def test_scheduler_complex(self):
         schedule = scheduler.create_schedule(
+            self.load_course_repo(),
             ['COMPSCI 111', 'COMPSCI 112']
         )
         self.assert_schedule_one_of(
@@ -120,7 +126,8 @@ class TestScheduler(unittest.TestCase):
         )
 
         schedule = scheduler.create_schedule(
-            ['COMPSCI 111', 'COMPSCI 112', 'I&C SCI 33'],
+            self.load_course_repo(),
+            ['COMPSCI 111', 'COMPSCI 112', 'I&C SCI 33']
         )
         self.assert_schedule_one_of(
             schedule,
@@ -129,26 +136,39 @@ class TestScheduler(unittest.TestCase):
                 [['MATH 3A', 'I&C SCI 6D', 'CSE 46', 'CSE 42'], ['I&C SCI 33', 'CSE 45C', 'COMPSCI 111'], ['COMPSCI 112']]
             ]
         )
+    #
+    # def test_scheduler_corequisite_cycle(self):
+    #     schedule = scheduler.create_schedule(
+    #         ['MATH 105A']
+    #     )
+    #     self.assert_schedule_one_of(
+    #         schedule,
+    #         [
+    #             [['MATH 3A'], ['MATH 105A', 'MATH 105LA']]
+    #         ]
+    #     )
+    #
+    # def test_scheduler_eecs163(self):
+    #     schedule = scheduler.create_schedule(
+    #         ['EECS 163']
+    #     )
+    #     self.assert_schedule_one_of(
+    #         schedule,
+    #         [
+    #             [['PHYS 7D', 'MAE 10', 'ICS 31'], ['EECS 70A', 'MATH 3D'], ['EECS 70B', 'EECS 70LB'], ['EECS 163', 'EECS 163L']]
+    #         ]
+    #     )
 
-    def test_scheduler_corequisite_cycle(self):
+    def test_scheduler_hang(self):
         schedule = scheduler.create_schedule(
-            ['MATH 105A']
+            self.load_course_repo(),
+            ['CHINESE 101B', 'COMPSCI 111', 'COMPSCI 113']
         )
+        print(schedule)
         self.assert_schedule_one_of(
             schedule,
             [
-                [['MATH 3A'], ['MATH 105A', 'MATH 105LA']]
-            ]
-        )
-
-    def test_scheduler_eecs163(self):
-        schedule = scheduler.create_schedule(
-            ['EECS 163']
-        )
-        self.assert_schedule_one_of(
-            schedule,
-            [
-                [['PHYS 7D', 'MAE 10', 'ICS 31'], ['EECS 70A', 'MATH 3D'], ['EECS 70B', 'EECS 70LB'], ['EECS 163', 'EECS 163L']]
+                [['COMPSCI 171', 'MATH 3A', 'I&C SCI 6D', 'CSE 46'], ['COMPSCI 113', 'COMPSCI 111', 'CHINESE 2DC'], ['CHINESE 3A'], ['CHINESE 3B'], ['CHINESE 3C'], ['CHINESE 101B']]
             ]
         )
 

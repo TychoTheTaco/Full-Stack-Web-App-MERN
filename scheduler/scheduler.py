@@ -69,6 +69,54 @@ def custom_all_simple_paths(graph, src, dst):
     return paths
 
 
+def get_all_combinations(graph, node):
+    def get_all_combos(node, combos, global_combos):
+        children = [x for x in graph.successors(node)]
+
+        added = []
+
+        for c in combos:
+            c.append(node)
+
+        if node.startswith('or'):
+
+            child_coms = []
+            com = []
+            for cc in combos:
+                com.append(cc)
+            child_coms.append(com)
+
+            for i in range(len(children) - 1):
+                com = []
+                n = len(combos)
+                for j in range(n):
+                    c = list(combos[j])
+                    global_combos.append(c)
+                    added.append(c)
+                    com.append(c)
+                child_coms.append(com)
+
+            for i in range(len(children)):
+                child_combos = get_all_combos(children[i], child_coms[i], global_combos)
+                for cc in child_combos:
+                    added.append(cc)
+        else:
+            for c in children:
+                child_combos = get_all_combos(c, combos, global_combos)
+                for cc in child_combos:
+                    combos.append(cc)
+                    added.append(cc)
+
+        return added
+
+    global_combos = [[]]
+    combos = [global_combos[0]]
+    get_all_combos(node, combos, global_combos)
+    #get_all_combos('COMPSCI 111', combos, global_combos)
+    print(combos)
+    return global_combos
+
+
 def create_schedule(course_repo, required_courses: [str], max_courses_per_quarter: int = 4, completed_courses: Optional[List[str]] = None):
     """
     ALGO:
@@ -126,86 +174,19 @@ def create_schedule(course_repo, required_courses: [str], max_courses_per_quarte
             else:
                 maybe_delete_node_and_children(course)
 
-    # Find all 'or' nodes
-    or_nodes = {}
+    all_combos = []
+    for course in required_courses:
+        all_combos.append(get_all_combinations(graph, course))
 
-    visited = []
-    def dfs(node):
-        visited.append(node)
-        children = succ_with_atr(graph, node, {})
-        if node.startswith('or'):
-            or_nodes[node] = children
-        for child in children:
-            if child not in visited:
-                dfs(child)
+    actual_all_combos = []
+    import itertools
+    for x in itertools.product(*all_combos):
+        s = set()
+        for i in x:
+            s.update(i)
+        actual_all_combos.append(s)
 
-    for node in required_courses:
-        dfs(node)
-
-    # get all combinations
-    or_node_indexes = {node: 0 for node in or_nodes}
-    or_node_as_list = [0 for node in or_node_indexes]
-    all_indexes = []
-
-    def add(index):
-        if index < 0:
-            return False
-        or_node_as_list[index] += 1
-        if or_node_as_list[index] >= len(or_nodes[list(or_node_indexes.keys())[index]]):
-            or_node_as_list[index] = 0
-            return add(index - 1)
-        return True
-
-    while True:
-        all_indexes.append(list(or_node_as_list))
-        if not add(len(or_node_as_list) - 1):
-            break
-
-    def list_to_dict(indexes):
-        return {list(or_nodes)[i]: or_nodes[list(or_nodes)[i]][v] for i, v in enumerate(indexes)}
-
-    def get_all_courses(node, choices):
-        courses = []
-
-        def dfs(node):
-            courses.append(node)
-            if node.startswith('or'):
-                dfs(choices[node])
-            else:
-                children = succ_with_atr(graph, node, {})
-                for child in children:
-                    if child not in courses:
-                        dfs(child)
-
-        dfs(node)
-        return courses
-
-    all_combos_per_root = []
-    for choice in all_indexes:
-        paths = {}
-        for node in required_courses:
-            paths[node] = get_all_courses(node, list_to_dict(choice))
-        all_combos_per_root.append(paths)
-
-    def get_depth(path):
-        depth = 0
-        for node in path:
-            if node.startswith('or'):
-                continue
-            depth += 1
-        return depth
-
-    def get_choice_depth(choice):
-        d = 0
-        for src, path in choice.items():
-            d += get_depth(path)
-        return d
-
-    sorted_choices = sorted(all_combos_per_root, key=get_choice_depth)
-    best_path = set()
-    for value in sorted_choices[0].values():
-        for x in value:
-            best_path.add(x)
+    best_path = list(sorted(actual_all_combos, key=lambda x: len(x)))[0]
 
     # remove nodes not in best path
     nodes = [x for x in graph.nodes()]
