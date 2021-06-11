@@ -113,7 +113,7 @@ def get_all_combinations(graph, node):
     combos = [global_combos[0]]
     get_all_combos(node, combos, global_combos)
     #get_all_combos('COMPSCI 111', combos, global_combos)
-    print(combos)
+    #print(combos)
     return global_combos
 
 
@@ -169,7 +169,7 @@ def create_schedule(course_repo, required_courses: [str], max_courses_per_quarte
 
                 # Delete the 'or' node
                 graph.remove_node(parent)
-                print('REMOVE:', parent)
+                #print('REMOVE:', parent)
 
             else:
                 maybe_delete_node_and_children(course)
@@ -267,6 +267,10 @@ def create_graph(course_repo, courses: [str]) -> nx.DiGraph:
         if 'corequisite_courses' in c:
             coro = c['corequisite_courses']
             parse(coro, course, t='b')
+
+    for course in courses:
+        if course not in graph:
+            graph.add_node(course)
 
     return graph
 
